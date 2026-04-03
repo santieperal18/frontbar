@@ -1,0 +1,179 @@
+/* Estilos específicos para Resto Bar */
+
+:root {
+  --color-primary: #8B4513; /* Marrón café */
+  --color-secondary: #D2691E; /* Chocolate */
+  --color-accent: #FFD700; /* Dorado */
+  --color-success: #228B22; /* Verde forestal */
+  --color-light: #FFF8DC; /* Beige claro */
+  --color-dark: #3E2723; /* Marrón oscuro */
+}
+
+.resto-bg {
+  background-color: var(--color-light);
+}
+
+.resto-header {
+  background: linear-gradient(135deg, var(--color-dark) 0%, var(--color-primary) 100%);
+  color: white;
+  padding: 1.5rem 0;
+}
+
+.resto-nav {
+  background-color: var(--color-secondary);
+  border-radius: 0 0 10px 10px;
+}
+
+.resto-nav .nav-link {
+  color: white !important;
+  font-weight: 500;
+  padding: 0.75rem 1.5rem;
+  transition: all 0.3s;
+}
+
+.resto-nav .nav-link:hover,
+.resto-nav .nav-link.active {
+  background-color: var(--color-primary);
+  transform: translateY(-2px);
+}
+
+.resto-card {
+  border: none;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(139, 69, 19, 0.1);
+  transition: transform 0.3s;
+}
+
+.resto-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(139, 69, 19, 0.2);
+}
+
+.resto-card-header {
+  background: linear-gradient(45deg, var(--color-primary), var(--color-secondary));
+  color: white;
+  border-radius: 10px 10px 0 0 !important;
+}
+
+.btn-resto {
+  background-color: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: 5px;
+  padding: 0.5rem 1.5rem;
+  transition: all 0.3s;
+}
+
+.btn-resto:hover {
+  background-color: var(--color-secondary);
+  color: white;
+  transform: translateY(-2px);
+}
+
+.btn-resto-outline {
+  border: 2px solid var(--color-primary);
+  color: var(--color-primary);
+  background: transparent;
+}
+
+.btn-resto-outline:hover {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+.menu-category {
+  background-color: var(--color-light);
+  border-left: 4px solid var(--color-secondary);
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.producto-card {
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.3s;
+}
+
+.producto-card:hover {
+  border-color: var(--color-secondary);
+}
+
+.producto-img {
+  height: 180px;
+  object-fit: cover;
+  width: 100%;
+}
+
+.precio-tag {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background-color: var(--color-accent);
+  color: var(--color-dark);
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.carrito-item {
+  border-bottom: 1px solid #e9ecef;
+  padding: 0.75rem 0;
+}
+
+.carrito-item:last-child {
+  border-bottom: none;
+}
+
+.total-box {
+  background-color: var(--color-light);
+  border: 2px dashed var(--color-secondary);
+  border-radius: 8px;
+  padding: 1rem;
+  text-align: center;
+}
+
+.estado-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.fade-in {
+  animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes slideInUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.slide-in-up {
+  animation: slideInUp 0.5s ease-out;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .resto-nav .nav-link {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+  }
+  
+  .producto-img {
+    height: 140px;
+  }
+}
