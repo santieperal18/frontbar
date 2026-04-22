@@ -2,7 +2,7 @@
   "type": "module",
   "scripts": {
     "start": "node app.js",
-    "dev": "node --watch app.js"
+    "dev": "nodemon app.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
