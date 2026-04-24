@@ -70,7 +70,8 @@ const loginLimiter = rateLimit({
   message: { error: "Demasiados intentos. Intenta más tarde." },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => NODE_ENV === 'development'
+  skip: (req) => NODE_ENV === 'development',
+  keyGenerator: (req) => req.ip || req.connection.remoteAddress
 });
 
 const apiLimiter = rateLimit({
@@ -235,10 +236,10 @@ app.use((err, req, res, next) => {
     console.log('✅ Usuario administrador verificado');
 
     // Iniciar el servidor
-    const server = app.listen(PORT, '0.0.0.0', () => {
+    const server = app.listen(PORT, () => {
       console.log(`\n${'='.repeat(50)}`);
       console.log(`🚀 Servidor Seguro iniciado`);
-      console.log(`🌐 Escuchando en: 0.0.0.0:${PORT}`);
+      console.log(`🌐 URL: http://localhost:${PORT}`);
       console.log(`🔒 Ambiente: ${NODE_ENV}`);
       console.log(`${'='.repeat(50)}\n`);
     });
