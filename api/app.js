@@ -53,11 +53,12 @@ app.use(helmet({
 // CORS - CONFIGURACIÓN SEGURA
 // ============================================
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || "http://localhost:5173",
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-  credentials: true,
-  optionsSuccessStatus: 200,
-  allowedHeaders: ['Content-Type', 'Authorization']
+  origin: [
+    'http://localhost:5173', // Tu entorno local de desarrollo
+    'https://bar-production-84b0.up.railway.app' // Tu Frontend en producción
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true // Muy importante si estás usando JWT/Tokens
 }));
 
 // ============================================
