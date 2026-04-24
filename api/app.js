@@ -76,7 +76,7 @@ const loginLimiter = rateLimit({
 
 const apiLimiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || 900000),
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || 100),
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || 1000),
   message: { error: "Límite de solicitudes excedido" },
   standardHeaders: true,
   legacyHeaders: false,
