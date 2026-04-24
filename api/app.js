@@ -70,8 +70,7 @@ const loginLimiter = rateLimit({
   message: { error: "Demasiados intentos. Intenta más tarde." },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => NODE_ENV === 'development',
-  keyGenerator: (req) => req.ip || req.connection.remoteAddress
+  skip: (req) => NODE_ENV === 'development'
 });
 
 const apiLimiter = rateLimit({
