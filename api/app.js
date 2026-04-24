@@ -57,7 +57,7 @@ app.use(cors({
     'http://localhost:5173', // Tu entorno local de desarrollo
     'https://bar-production-84b0.up.railway.app' // Tu Frontend en producción
   ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   credentials: true // Muy importante si estás usando JWT/Tokens
 }));
 
