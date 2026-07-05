@@ -51,12 +51,17 @@ class ReporteService {
        JOIN pedido ped ON pp.id_pedido = ped.id
        WHERE ped.estado != 'cancelado'
        AND ped.restaurante_id = :restauranteId
-       ${fechaInicio && fechaFin ? `AND ped.fecha BETWEEN '${fechaInicio} 00:00:00' AND '${fechaFin} 23:59:59'` : ""}
-       GROUP BY p.id
+       ${fechaInicio && fechaFin ? "AND ped.fecha BETWEEN :fechaInicio AND :fechaFin" : ""}
+       GROUP BY p.id, p.nombre
        ORDER BY total_vendido DESC
        LIMIT :limitNum`,
       {
-        replacements: { restauranteId, limitNum },
+        replacements: {
+          restauranteId,
+          limitNum,
+          fechaInicio: `${fechaInicio} 00:00:00`,
+          fechaFin: `${fechaFin} 23:59:59`
+        },
         type: sequelize.QueryTypes.SELECT
       }
     );
@@ -68,14 +73,21 @@ class ReporteService {
       `SELECT p.nombre, COALESCE(SUM(pp.cantidad), 0) as total_vendido
        FROM producto p
        LEFT JOIN pedido_producto pp ON pp.id_producto = p.id AND pp.restaurante_id = :restauranteId
-       LEFT JOIN pedido ped ON ped.id = pp.id_pedido AND ped.restaurante_id = :restauranteId AND ped.estado != 'cancelado'
-       ${fechaInicio && fechaFin ? `AND ped.fecha BETWEEN '${fechaInicio} 00:00:00' AND '${fechaFin} 23:59:59'` : ""}
-       WHERE p.restaurante_id = :restauranteId AND p.disponible = 1
-       GROUP BY p.id
+       LEFT JOIN pedido ped ON ped.id = pp.id_pedido
+         AND ped.restaurante_id = :restauranteId
+         AND ped.estado != 'cancelado'
+         ${fechaInicio && fechaFin ? "AND ped.fecha BETWEEN :fechaInicio AND :fechaFin" : ""}
+       WHERE p.restaurante_id = :restauranteId AND p.disponible = true
+       GROUP BY p.id, p.nombre
        ORDER BY total_vendido ASC, p.nombre ASC
        LIMIT :limitNum`,
       {
-        replacements: { restauranteId, limitNum },
+        replacements: {
+          restauranteId,
+          limitNum,
+          fechaInicio: `${fechaInicio} 00:00:00`,
+          fechaFin: `${fechaFin} 23:59:59`
+        },
         type: sequelize.QueryTypes.SELECT
       }
     );
@@ -88,7 +100,7 @@ class ReporteService {
        FROM pedido p
        JOIN cliente c ON p.id_cliente = c.id
        WHERE p.estado != 'cancelado' AND p.restaurante_id = :restauranteId
-       GROUP BY c.id
+       GROUP BY c.id, c.nombre, c.apellido
        ORDER BY cantidad_pedidos DESC
        LIMIT :limitNum`,
       {
@@ -109,7 +121,7 @@ class ReporteService {
        WHERE p.estado != 'cancelado'
        AND p.restaurante_id = :restauranteId
        AND p.fecha BETWEEN :fechaInicio AND :fechaFin
-       GROUP BY r.id
+       GROUP BY r.id, r.nombre, r.apellido
        ORDER BY cantidad_entregas DESC`,
       {
         replacements: { restauranteId, fechaInicio, fechaFin },
@@ -130,11 +142,15 @@ class ReporteService {
        JOIN pedido ped ON ped.id = pp.id_pedido AND ped.restaurante_id = c.restaurante_id
        WHERE c.restaurante_id = :restauranteId
        AND ped.estado != 'cancelado'
-       ${fechaInicio && fechaFin ? `AND ped.fecha BETWEEN '${fechaInicio} 00:00:00' AND '${fechaFin} 23:59:59'` : ""}
-       GROUP BY c.id
+       ${fechaInicio && fechaFin ? "AND ped.fecha BETWEEN :fechaInicio AND :fechaFin" : ""}
+       GROUP BY c.id, c.nombre
        ORDER BY facturacion DESC`,
       {
-        replacements: { restauranteId },
+        replacements: {
+          restauranteId,
+          fechaInicio: `${fechaInicio} 00:00:00`,
+          fechaFin: `${fechaFin} 23:59:59`
+        },
         type: sequelize.QueryTypes.SELECT
       }
     );
@@ -147,13 +163,15 @@ class ReporteService {
   async obtenerVentasPorHora(fecha, restauranteId) {
     const targetDate = fecha || new Date().toISOString().split("T")[0];
     return sequelize.query(
-      `SELECT strftime('%H', fecha) as hora, COUNT(*) as pedidos, SUM(total) as total
+      `SELECT LPAD(CAST(EXTRACT(HOUR FROM fecha) AS TEXT), 2, '0') as hora,
+              COUNT(*) as pedidos,
+              SUM(total) as total
        FROM pedido
        WHERE restaurante_id = :restauranteId
        AND estado != 'cancelado'
        AND fecha BETWEEN :fechaInicio AND :fechaFin
-       GROUP BY strftime('%H', fecha)
-       ORDER BY hora ASC`,
+       GROUP BY EXTRACT(HOUR FROM fecha)
+       ORDER BY EXTRACT(HOUR FROM fecha) ASC`,
       {
         replacements: {
           restauranteId,
