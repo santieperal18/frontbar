@@ -62,7 +62,11 @@ app.get("/api/health", async (req, res) => {
       autoMigrate: SHOULD_ALTER_SCHEMA
     });
   } catch (error) {
-    res.status(500).json({ ok: false, error: error.message });
+    res.status(500).json({
+      ok: false,
+      error: error?.message || String(error),
+      name: error?.name || "UnknownError"
+    });
   }
 });
 
@@ -80,26 +84,41 @@ app.use((req, res) => {
 });
 
 app.use((err, req, res, next) => {
-  console.error("Error:", err);
+  console.error("Error no controlado:", err);
   res.status(err.statusCode || 500).json({
-    error: NODE_ENV === "production" ? "Error interno del servidor" : err.message
+    error: NODE_ENV === "production" ? "Error interno del servidor" : (err?.message || String(err))
   });
 });
 
 (async function start() {
   try {
+    console.log("Iniciando backend...");
+    console.log(`NODE_ENV=${NODE_ENV}`);
+    console.log(`PORT=${PORT}`);
+    console.log(`DB dialect detectado=${sequelize.getDialect()}`);
+    console.log(`DATABASE_URL presente=${Boolean(process.env.DATABASE_URL)}`);
+    console.log(`PGHOST presente=${Boolean(process.env.PGHOST)}`);
+
     await sequelize.authenticate();
     console.log(`BD conectada con dialecto ${sequelize.getDialect()}`);
+
     await sequelize.sync({ alter: SHOULD_ALTER_SCHEMA });
     console.log(`Modelos sincronizados (alter=${SHOULD_ALTER_SCHEMA})`);
+
     const restaurante = await usuarioService.crearUsuarioOwner();
     await mesaService.inicializar(restaurante.id, 12);
     await categoriaService.asegurarCategoriasBase(restaurante.id);
+
     app.listen(PORT, () => {
       console.log(`Servidor iniciado en http://localhost:${PORT}`);
     });
   } catch (error) {
-    console.error("Error crítico al iniciar:", error.message);
+    console.error("Error crítico al iniciar:", error);
+    console.error("Mensaje:", error?.message || "(sin mensaje)");
+    console.error("Nombre:", error?.name || "(sin nombre)");
+    if (error?.stack) {
+      console.error(error.stack);
+    }
     process.exit(1);
   }
 })();
