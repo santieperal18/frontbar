@@ -93,4 +93,74 @@ const sequelize = usePostgres ? buildPostgresSequelize() : new Sequelize({
   logging: false
 });
 
+export const dbState = {
+  ready: false,
+  connecting: false,
+  attempts: 0,
+  lastError: null,
+  lastConnectedAt: null
+};
+
+function formatDbError(error) {
+  return {
+    name: error?.name || "UnknownError",
+    message: error?.message || String(error),
+    code: error?.original?.code || error?.parent?.code || error?.code || null
+  };
+}
+
+export async function initializeDatabase({ alter = true } = {}) {
+  if (dbState.connecting) {
+    return false;
+  }
+
+  dbState.connecting = true;
+  dbState.attempts += 1;
+
+  try {
+    await sequelize.authenticate();
+    await sequelize.sync({ alter });
+    dbState.ready = true;
+    dbState.lastError = null;
+    dbState.lastConnectedAt = new Date().toISOString();
+    return true;
+  } catch (error) {
+    dbState.ready = false;
+    dbState.lastError = formatDbError(error);
+    throw error;
+  } finally {
+    dbState.connecting = false;
+  }
+}
+
+export function startDatabaseRetryLoop({ alter = true, retryMs = 15000 } = {}) {
+  const tick = async () => {
+    if (dbState.ready || dbState.connecting) {
+      return;
+    }
+
+    try {
+      await initializeDatabase({ alter });
+      console.log("Base de datos conectada y sincronizada");
+    } catch (error) {
+      const info = formatDbError(error);
+      console.error(`Reintento DB fallido: ${info.name} ${info.code || ""} ${info.message}`);
+    }
+  };
+
+  void tick();
+  return setInterval(tick, retryMs);
+}
+
+export function ensureDatabaseReady(req, res, next) {
+  if (dbState.ready) {
+    return next();
+  }
+
+  return res.status(503).json({
+    error: "Base de datos no disponible temporalmente",
+    db: dbState
+  });
+}
+
 export default sequelize;

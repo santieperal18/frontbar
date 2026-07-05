@@ -4,7 +4,7 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
-import sequelize from "./db.js";
+import sequelize, { dbState, ensureDatabaseReady, initializeDatabase, startDatabaseRetryLoop } from "./db.js";
 import authRouter from "./routes/auth.routes.js";
 import clientesRouter from "./routes/clientes.routes.js";
 import productosRouter from "./routes/productos.routes.js";
@@ -38,11 +38,7 @@ const allowedOrigins = [
 
 const corsOptions = {
   origin(origin, callback) {
-    if (!origin) {
-      return callback(null, true);
-    }
-
-    if (allowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
 
@@ -78,31 +74,23 @@ app.get("/", (req, res) => {
 });
 
 app.get("/api/health", async (req, res) => {
-  try {
-    await sequelize.authenticate();
-    res.json({
-      ok: true,
-      dialect: sequelize.getDialect(),
-      autoMigrate: SHOULD_ALTER_SCHEMA,
-      allowedOrigins
-    });
-  } catch (error) {
-    res.status(500).json({
-      ok: false,
-      error: error?.message || String(error),
-      name: error?.name || "UnknownError"
-    });
-  }
+  res.status(dbState.ready ? 200 : 503).json({
+    ok: dbState.ready,
+    dialect: sequelize.getDialect(),
+    autoMigrate: SHOULD_ALTER_SCHEMA,
+    allowedOrigins,
+    db: dbState
+  });
 });
 
-app.use("/api/auth", authRouter);
-app.use("/api/clientes", verificarToken, clientesRouter);
-app.use("/api/productos", verificarToken, productosRouter);
-app.use("/api/pedidos", verificarToken, pedidosRouter);
-app.use("/api/repartidores", verificarToken, repartidoresRouter);
-app.use("/api/categorias", verificarToken, categoriasRouter);
-app.use("/api/reportes", verificarToken, reportesRouter);
-app.use("/api/operaciones", verificarToken, operacionesRouter);
+app.use("/api/auth", ensureDatabaseReady, authRouter);
+app.use("/api/clientes", ensureDatabaseReady, verificarToken, clientesRouter);
+app.use("/api/productos", ensureDatabaseReady, verificarToken, productosRouter);
+app.use("/api/pedidos", ensureDatabaseReady, verificarToken, pedidosRouter);
+app.use("/api/repartidores", ensureDatabaseReady, verificarToken, repartidoresRouter);
+app.use("/api/categorias", ensureDatabaseReady, verificarToken, categoriasRouter);
+app.use("/api/reportes", ensureDatabaseReady, verificarToken, reportesRouter);
+app.use("/api/operaciones", ensureDatabaseReady, verificarToken, operacionesRouter);
 
 app.use((req, res) => {
   res.status(404).json({ error: "Ruta no encontrada", path: req.originalUrl, method: req.method });
@@ -119,6 +107,12 @@ app.use((err, req, res, next) => {
   });
 });
 
+async function bootstrapData() {
+  const restaurante = await usuarioService.crearUsuarioOwner();
+  await mesaService.inicializar(restaurante.id, 12);
+  await categoriaService.asegurarCategoriasBase(restaurante.id);
+}
+
 (async function start() {
   try {
     console.log("Iniciando backend...");
@@ -129,15 +123,16 @@ app.use((err, req, res, next) => {
     console.log(`PGHOST presente=${Boolean(process.env.PGHOST)}`);
     console.log(`Allowed origins=${allowedOrigins.join(", ")}`);
 
-    await sequelize.authenticate();
-    console.log(`BD conectada con dialecto ${sequelize.getDialect()}`);
-
-    await sequelize.sync({ alter: SHOULD_ALTER_SCHEMA });
-    console.log(`Modelos sincronizados (alter=${SHOULD_ALTER_SCHEMA})`);
-
-    const restaurante = await usuarioService.crearUsuarioOwner();
-    await mesaService.inicializar(restaurante.id, 12);
-    await categoriaService.asegurarCategoriasBase(restaurante.id);
+    try {
+      await initializeDatabase({ alter: SHOULD_ALTER_SCHEMA });
+      console.log(`BD conectada con dialecto ${sequelize.getDialect()}`);
+      console.log(`Modelos sincronizados (alter=${SHOULD_ALTER_SCHEMA})`);
+      await bootstrapData();
+    } catch (error) {
+      console.error("DB no disponible al iniciar. El servidor queda arriba en modo degradado.");
+      console.error(error);
+      startDatabaseRetryLoop({ alter: SHOULD_ALTER_SCHEMA, retryMs: 15000 });
+    }
 
     app.listen(PORT, () => {
       console.log(`Servidor iniciado en http://localhost:${PORT}`);
