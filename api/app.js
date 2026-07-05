@@ -119,6 +119,8 @@ async function bootstrapData() {
     console.log(`NODE_ENV=${NODE_ENV}`);
     console.log(`PORT=${PORT}`);
     console.log(`DB dialect detectado=${sequelize.getDialect()}`);
+    console.log(`DB source=${sequelize.__connectionSource}`);
+    console.log(`DB host=${sequelize.__connectionHost}`);
     console.log(`DATABASE_URL presente=${Boolean(process.env.DATABASE_URL)}`);
     console.log(`PGHOST presente=${Boolean(process.env.PGHOST)}`);
     console.log(`Allowed origins=${allowedOrigins.join(", ")}`);

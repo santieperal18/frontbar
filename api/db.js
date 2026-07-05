@@ -17,6 +17,7 @@ const hasLegacyPgVars = Boolean(
 );
 
 const usePostgres = process.env.DB_DIALECT === "postgres" || hasDatabaseUrl || hasRailwayPgVars || hasLegacyPgVars;
+const isRailwayInternalHost = (host) => typeof host === "string" && host.includes("railway.internal");
 
 const commonOptions = {
   logging: false,
@@ -25,66 +26,120 @@ const commonOptions = {
     min: 0,
     acquire: 30000,
     idle: 10000
+  },
+  dialectOptions: {},
+  retry: {
+    max: 2
   }
 };
 
-const sslOption = process.env.DB_SSL === "false"
-  ? false
-  : {
+function buildSslOption(host) {
+  if (process.env.DB_SSL === "false") {
+    return false;
+  }
+
+  if (process.env.DB_SSL === "true") {
+    return {
       require: true,
       rejectUnauthorized: false
     };
+  }
+
+  if (isRailwayInternalHost(host)) {
+    return false;
+  }
+
+  return {
+    require: true,
+    rejectUnauthorized: false
+  };
+}
+
+function createSequelizeFromParams({ database, username, password, host, port, source }) {
+  const ssl = buildSslOption(host);
+  const sequelize = new Sequelize(database, username, password, {
+    host,
+    port: port || 5432,
+    dialect: "postgres",
+    dialectOptions: {
+      ...(ssl ? { ssl } : {}),
+      connectionTimeoutMillis: parseInt(process.env.DB_CONNECT_TIMEOUT_MS || "10000", 10)
+    },
+    ...commonOptions
+  });
+
+  sequelize.__connectionSource = source;
+  sequelize.__connectionHost = host;
+  return sequelize;
+}
+
+function createSequelizeFromUrl(url, source) {
+  const host = (() => {
+    try {
+      return new URL(url).hostname;
+    } catch {
+      return null;
+    }
+  })();
+
+  const ssl = buildSslOption(host);
+  const sequelize = new Sequelize(url, {
+    dialect: "postgres",
+    dialectOptions: {
+      ...(ssl ? { ssl } : {}),
+      connectionTimeoutMillis: parseInt(process.env.DB_CONNECT_TIMEOUT_MS || "10000", 10)
+    },
+    ...commonOptions
+  });
+
+  sequelize.__connectionSource = source;
+  sequelize.__connectionHost = host;
+  return sequelize;
+}
 
 function buildPostgresSequelize() {
-  if (hasDatabaseUrl) {
-    return new Sequelize(process.env.DATABASE_URL, {
-      dialect: "postgres",
-      dialectOptions: { ssl: sslOption },
-      ...commonOptions
+  // En Railway conviene priorizar la red privada PGHOST/PGPORT por sobre DATABASE_URL
+  // porque evita pasar por endpoints públicos/proxy.
+  if (hasRailwayPgVars) {
+    return createSequelizeFromParams({
+      database: process.env.PGDATABASE,
+      username: process.env.PGUSER,
+      password: process.env.PGPASSWORD || "",
+      host: process.env.PGHOST,
+      port: process.env.PGPORT || 5432,
+      source: "railway-pg-vars"
     });
   }
 
-  if (hasRailwayPgVars) {
-    return new Sequelize(
-      process.env.PGDATABASE,
-      process.env.PGUSER,
-      process.env.PGPASSWORD || "",
-      {
-        host: process.env.PGHOST,
-        port: process.env.PGPORT || 5432,
-        dialect: "postgres",
-        dialectOptions: { ssl: sslOption },
-        ...commonOptions
-      }
-    );
+  if (hasLegacyPgVars) {
+    return createSequelizeFromParams({
+      database: process.env.DB_NAME,
+      username: process.env.DB_USER,
+      password: process.env.DB_PASSWORD || "",
+      host: process.env.DB_HOST,
+      port: process.env.DB_PORT || 5432,
+      source: "legacy-db-vars"
+    });
   }
 
-  if (hasLegacyPgVars) {
-    return new Sequelize(
-      process.env.DB_NAME,
-      process.env.DB_USER,
-      process.env.DB_PASSWORD || "",
-      {
-        host: process.env.DB_HOST,
-        port: process.env.DB_PORT || 5432,
-        dialect: "postgres",
-        dialectOptions: { ssl: sslOption },
-        ...commonOptions
-      }
-    );
+  if (hasDatabaseUrl) {
+    return createSequelizeFromUrl(process.env.DATABASE_URL, "database-url");
   }
 
   if (nodeEnv === "production") {
     throw new Error(
-      "No se encontraron credenciales PostgreSQL para produccion. Configura DATABASE_URL o las variables PGHOST/PGDATABASE/PGUSER/PGPASSWORD."
+      "No se encontraron credenciales PostgreSQL para produccion. Configura PGHOST/PGDATABASE/PGUSER/PGPASSWORD o DATABASE_URL."
     );
   }
 
-  return new Sequelize({
+  const sequelize = new Sequelize({
     dialect: "sqlite",
     storage: "./data/restoBar.db",
     logging: false
   });
+  sequelize.__connectionSource = "sqlite-dev";
+  sequelize.__connectionHost = "local-file";
+  return sequelize;
 }
 
 const sequelize = usePostgres ? buildPostgresSequelize() : new Sequelize({
@@ -92,6 +147,11 @@ const sequelize = usePostgres ? buildPostgresSequelize() : new Sequelize({
   storage: "./data/restoBar.db",
   logging: false
 });
+
+if (!sequelize.__connectionSource) {
+  sequelize.__connectionSource = "sqlite-fallback";
+  sequelize.__connectionHost = "local-file";
+}
 
 export const dbState = {
   ready: false,
