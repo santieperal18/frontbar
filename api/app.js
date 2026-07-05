@@ -16,6 +16,7 @@ import operacionesRouter from "./routes/operaciones.routes.js";
 import { verificarToken, registrarAcceso } from "./middleware/autenticacion.js";
 import usuarioService from "./services/usuarioService.js";
 import mesaService from "./services/mesaService.js";
+import categoriaService from "./services/categoriaService.js";
 
 dotenv.config();
 
@@ -23,6 +24,9 @@ const app = express();
 app.set("trust proxy", 1);
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || "development";
+const SHOULD_ALTER_SCHEMA = process.env.DB_SYNC_ALTER
+  ? process.env.DB_SYNC_ALTER === "true"
+  : NODE_ENV === "development";
 
 app.use(helmet());
 app.use(cors({
@@ -72,9 +76,10 @@ app.use((err, req, res, next) => {
 (async function start() {
   try {
     await sequelize.authenticate();
-    await sequelize.sync({ alter: true });
+    await sequelize.sync({ alter: SHOULD_ALTER_SCHEMA });
     const restaurante = await usuarioService.crearUsuarioOwner();
     await mesaService.inicializar(restaurante.id, 12);
+    await categoriaService.asegurarCategoriasBase(restaurante.id);
     app.listen(PORT, () => {
       console.log(`Servidor iniciado en http://localhost:${PORT}`);
     });

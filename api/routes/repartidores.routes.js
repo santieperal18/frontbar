@@ -19,19 +19,19 @@ router.get("/disponibles", async (req, res) => {
   }
 });
 
-router.get("/:id", async (req, res) => {
+router.get("/buscar/:nombre", async (req, res) => {
   try {
-    const repartidor = await repartidorService.obtenerPorId(parseInt(req.params.id), req.usuario.restauranteId);
-    if (!repartidor) return res.status(404).json({ error: "Repartidor no encontrado" });
-    res.json(repartidor);
+    res.json(await repartidorService.buscarPorNombre(req.params.nombre, req.usuario.restauranteId));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.get("/buscar/:nombre", async (req, res) => {
+router.get("/:id", async (req, res) => {
   try {
-    res.json(await repartidorService.buscarPorNombre(req.params.nombre, req.usuario.restauranteId));
+    const repartidor = await repartidorService.obtenerPorId(parseInt(req.params.id), req.usuario.restauranteId);
+    if (!repartidor) return res.status(404).json({ error: "Repartidor no encontrado" });
+    res.json(repartidor);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -11,16 +11,6 @@ router.get("/", async (req, res) => {
   }
 });
 
-router.get("/:id", async (req, res) => {
-  try {
-    const producto = await productoService.obtenerPorId(parseInt(req.params.id), req.usuario.restauranteId);
-    if (!producto) return res.status(404).json({ error: "Producto no encontrado" });
-    res.json(producto);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 router.get("/categoria/:idCategoria", async (req, res) => {
   try {
     res.json(await productoService.obtenerPorCategoria(parseInt(req.params.idCategoria), req.usuario.restauranteId));
@@ -34,6 +24,16 @@ router.get("/tipo/:tipo", async (req, res) => {
     res.json(await productoService.obtenerPorTipo(req.params.tipo, req.usuario.restauranteId));
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+router.get("/:id", async (req, res) => {
+  try {
+    const producto = await productoService.obtenerPorId(parseInt(req.params.id), req.usuario.restauranteId);
+    if (!producto) return res.status(404).json({ error: "Producto no encontrado" });
+    res.json(producto);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

@@ -11,16 +11,6 @@ router.get("/", async (req, res) => {
   }
 });
 
-router.get("/:id", async (req, res) => {
-  try {
-    const pedido = await pedidoService.obtenerPorId(parseInt(req.params.id), req.usuario.restauranteId);
-    if (!pedido) return res.status(404).json({ error: "Pedido no encontrado" });
-    res.json(pedido);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 router.get("/cliente/:idCliente", async (req, res) => {
   try {
     res.json(await pedidoService.obtenerPorCliente(parseInt(req.params.idCliente), req.usuario.restauranteId));
@@ -34,6 +24,16 @@ router.get("/filtrar/buscar", async (req, res) => {
     res.json(await pedidoService.filtrar(req.query, req.usuario.restauranteId));
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+router.get("/:id", async (req, res) => {
+  try {
+    const pedido = await pedidoService.obtenerPorId(parseInt(req.params.id), req.usuario.restauranteId);
+    if (!pedido) return res.status(404).json({ error: "Pedido no encontrado" });
+    res.json(pedido);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

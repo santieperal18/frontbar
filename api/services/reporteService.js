@@ -62,6 +62,25 @@ class ReporteService {
     );
   }
 
+  async obtenerProductosMenosVendidos(fechaInicio, fechaFin, limite, restauranteId) {
+    const limitNum = Number(limite || 5);
+    return sequelize.query(
+      `SELECT p.nombre, COALESCE(SUM(pp.cantidad), 0) as total_vendido
+       FROM producto p
+       LEFT JOIN pedido_producto pp ON pp.id_producto = p.id AND pp.restaurante_id = :restauranteId
+       LEFT JOIN pedido ped ON ped.id = pp.id_pedido AND ped.restaurante_id = :restauranteId AND ped.estado != 'cancelado'
+       ${fechaInicio && fechaFin ? `AND ped.fecha BETWEEN '${fechaInicio} 00:00:00' AND '${fechaFin} 23:59:59'` : ""}
+       WHERE p.restaurante_id = :restauranteId AND p.disponible = 1
+       GROUP BY p.id
+       ORDER BY total_vendido ASC, p.nombre ASC
+       LIMIT :limitNum`,
+      {
+        replacements: { restauranteId, limitNum },
+        type: sequelize.QueryTypes.SELECT
+      }
+    );
+  }
+
   async obtenerClientesFrecuentes(limite, restauranteId) {
     const limitNum = Number(limite || 5);
     return sequelize.query(
@@ -99,6 +118,53 @@ class ReporteService {
     );
   }
 
+  async obtenerCategoriasClave(fechaInicio, fechaFin, restauranteId) {
+    const categorias = await sequelize.query(
+      `SELECT c.nombre,
+              SUM(pp.cantidad) as unidades,
+              SUM(pp.subtotal) as facturacion,
+              SUM((pp.precio_unitario - COALESCE(p.costo, 0)) * pp.cantidad) as margen
+       FROM categoria c
+       JOIN producto p ON p.id_categoria = c.id AND p.restaurante_id = c.restaurante_id
+       JOIN pedido_producto pp ON pp.id_producto = p.id AND pp.restaurante_id = c.restaurante_id
+       JOIN pedido ped ON ped.id = pp.id_pedido AND ped.restaurante_id = c.restaurante_id
+       WHERE c.restaurante_id = :restauranteId
+       AND ped.estado != 'cancelado'
+       ${fechaInicio && fechaFin ? `AND ped.fecha BETWEEN '${fechaInicio} 00:00:00' AND '${fechaFin} 23:59:59'` : ""}
+       GROUP BY c.id
+       ORDER BY facturacion DESC`,
+      {
+        replacements: { restauranteId },
+        type: sequelize.QueryTypes.SELECT
+      }
+    );
+
+    const masVendida = categorias[0] || null;
+    const masRentable = [...categorias].sort((a, b) => Number(b.margen || 0) - Number(a.margen || 0))[0] || null;
+    return { masVendida, masRentable };
+  }
+
+  async obtenerVentasPorHora(fecha, restauranteId) {
+    const targetDate = fecha || new Date().toISOString().split("T")[0];
+    return sequelize.query(
+      `SELECT strftime('%H', fecha) as hora, COUNT(*) as pedidos, SUM(total) as total
+       FROM pedido
+       WHERE restaurante_id = :restauranteId
+       AND estado != 'cancelado'
+       AND fecha BETWEEN :fechaInicio AND :fechaFin
+       GROUP BY strftime('%H', fecha)
+       ORDER BY hora ASC`,
+      {
+        replacements: {
+          restauranteId,
+          fechaInicio: `${targetDate} 00:00:00`,
+          fechaFin: `${targetDate} 23:59:59`
+        },
+        type: sequelize.QueryTypes.SELECT
+      }
+    );
+  }
+
   async obtenerDashboardSupervivencia(restauranteId) {
     const hoy = new Date();
     const ayer = new Date(hoy);
@@ -106,10 +172,13 @@ class ReporteService {
     const fechaHoy = hoy.toISOString().split("T")[0];
     const fechaAyer = ayer.toISOString().split("T")[0];
 
-    const [ventasHoy, ventasAyer, topProductos] = await Promise.all([
+    const [ventasHoy, ventasAyer, topProductos, productosLentos, categorias, ventasPorHora] = await Promise.all([
       this.obtenerVentasDiarias(fechaHoy, restauranteId),
       this.obtenerVentasDiarias(fechaAyer, restauranteId),
-      this.obtenerProductosMasVendidos(fechaHoy, fechaHoy, 5, restauranteId)
+      this.obtenerProductosMasVendidos(fechaHoy, fechaHoy, 5, restauranteId),
+      this.obtenerProductosMenosVendidos(fechaHoy, fechaHoy, 5, restauranteId),
+      this.obtenerCategoriasClave(fechaHoy, fechaHoy, restauranteId),
+      this.obtenerVentasPorHora(fechaHoy, restauranteId)
     ]);
 
     const totalHoy = Number(ventasHoy.totalVentas || 0);
@@ -119,7 +188,10 @@ class ReporteService {
       facturacionAyer: totalAyer,
       variacionFacturacion: totalAyer === 0 ? 100 : ((totalHoy - totalAyer) / totalAyer) * 100,
       ticketPromedio: ventasHoy.cantidadPedidos ? totalHoy / ventasHoy.cantidadPedidos : 0,
-      topProductos
+      topProductos,
+      productosLentos,
+      categorias,
+      ventasPorHora
     };
   }
 

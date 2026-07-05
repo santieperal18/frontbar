@@ -11,19 +11,19 @@ router.get("/", async (req, res) => {
   }
 });
 
-router.get("/:id", async (req, res) => {
+router.get("/buscar/:nombre", async (req, res) => {
   try {
-    const cliente = await clienteService.obtenerPorId(parseInt(req.params.id), req.usuario.restauranteId);
-    if (!cliente) return res.status(404).json({ error: "Cliente no encontrado" });
-    res.json(cliente);
+    res.json(await clienteService.buscarPorNombre(req.params.nombre, req.usuario.restauranteId));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.get("/buscar/:nombre", async (req, res) => {
+router.get("/:id", async (req, res) => {
   try {
-    res.json(await clienteService.buscarPorNombre(req.params.nombre, req.usuario.restauranteId));
+    const cliente = await clienteService.obtenerPorId(parseInt(req.params.id), req.usuario.restauranteId);
+    if (!cliente) return res.status(404).json({ error: "Cliente no encontrado" });
+    res.json(cliente);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

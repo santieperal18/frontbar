@@ -54,6 +54,18 @@ class ProductoService {
         throw new Error(`Ya existe un producto con el nombre: ${datos.nombre}`);
       }
     }
+
+    if (datos.precioMostrador !== undefined && Number(datos.precioMostrador) < 0) {
+      throw new Error("El precio de mostrador no puede ser negativo");
+    }
+
+    if (datos.precioSalon !== undefined && Number(datos.precioSalon) < 0) {
+      throw new Error("El precio de salón no puede ser negativo");
+    }
+
+    if (datos.costo !== undefined && Number(datos.costo) < 0) {
+      throw new Error("El costo no puede ser negativo");
+    }
   }
 
   async #validarCategoria(idCategoria, restauranteId) {
@@ -68,6 +80,7 @@ class ProductoService {
     obj.precio = parseFloat(obj.precio || 0);
     obj.precioSalon = parseFloat(obj.precioSalon || obj.precio || 0);
     obj.precioMostrador = parseFloat(obj.precioMostrador || obj.precio || 0);
+    obj.costo = parseFloat(obj.costo || 0);
     obj.stockActual = Number(obj.stockActual || 0);
     return obj;
   }
@@ -80,6 +93,7 @@ class ProductoService {
       precio: precioMostrador,
       precioMostrador,
       precioSalon,
+      costo: parseFloat(datos.costo || 0),
       controlaStock: Boolean(datos.controlaStock),
       stockActual: Number(datos.stockActual || 0)
     };

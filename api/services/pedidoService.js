@@ -63,13 +63,18 @@ class PedidoService {
         throw new Error(`Producto con ID ${productoPedido.id} no encontrado o no disponible`);
       }
 
+      const cantidadSolicitada = Number(productoPedido.cantidad || 1);
+      if (producto.controlaStock && Number(producto.stockActual || 0) < cantidadSolicitada) {
+        throw new Error(`Stock insuficiente para ${producto.nombre}. Disponible: ${producto.stockActual}`);
+      }
+
       const precioSeleccionado = datosPedido.tipoEntrega === "salon"
         ? parseFloat(producto.precioSalon || producto.precio)
         : parseFloat(producto.precioMostrador || producto.precio);
 
       productosValidos.push({
         id: producto.id,
-        cantidad: Number(productoPedido.cantidad || 1),
+        cantidad: cantidadSolicitada,
         precio: precioSeleccionado
       });
     }

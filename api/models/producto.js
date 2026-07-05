@@ -39,6 +39,12 @@ Producto.init(
       defaultValue: 0,
       field: "precio_mostrador"
     },
+    costo: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false,
+      defaultValue: 0,
+      field: "costo"
+    },
     idCategoria: {
       type: DataTypes.INTEGER,
       allowNull: false,

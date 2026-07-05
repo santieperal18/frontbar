@@ -1,5 +1,12 @@
 import categoriaRepository from "../repositories/categoriaRepository.js";
 
+const CATEGORIAS_BASE = [
+  { nombre: "Lomos y Hamburguesas", tipo: "comida", descripcion: "Sandwiches, hamburguesas y lomos" },
+  { nombre: "Pizzas", tipo: "comida", descripcion: "Pizzas y porciones" },
+  { nombre: "Bebidas", tipo: "bebida", descripcion: "Gaseosas, cervezas y tragos" },
+  { nombre: "Postres", tipo: "comida", descripcion: "Postres y opciones dulces" }
+];
+
 class CategoriaService {
   async obtenerTodos(restauranteId) {
     return categoriaRepository.obtenerTodos(restauranteId);
@@ -29,6 +36,19 @@ class CategoriaService {
       throw new Error("No se puede eliminar la categoría porque tiene productos asociados");
     }
     return categoriaRepository.eliminar(id, restauranteId);
+  }
+
+  async asegurarCategoriasBase(restauranteId) {
+    const actuales = await categoriaRepository.obtenerTodos(restauranteId);
+    if (actuales.length > 0) {
+      return actuales;
+    }
+
+    for (const categoria of CATEGORIAS_BASE) {
+      await categoriaRepository.crear(categoria, restauranteId);
+    }
+
+    return categoriaRepository.obtenerTodos(restauranteId);
   }
 
   async #validarCategoria(datos, idActual, restauranteId) {
