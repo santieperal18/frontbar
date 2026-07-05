@@ -1,73 +1,32 @@
-import repartidorRepository from '../repositories/repartidorRepository.js';
+import repartidorRepository from "../repositories/repartidorRepository.js";
 
 class RepartidorService {
-  async obtenerTodos() {
-    const repartidores = await repartidorRepository.obtenerTodos();
-    return repartidores.map(this.#convertirSalida);
+  async obtenerTodos(restauranteId) {
+    return repartidorRepository.obtenerTodos(restauranteId);
   }
 
-  async obtenerPorId(id) {
-    const repartidor = await repartidorRepository.obtenerPorId(id);
-    return repartidor ? this.#convertirSalida(repartidor) : null;
+  async obtenerPorId(id, restauranteId) {
+    return repartidorRepository.obtenerPorId(id, restauranteId);
   }
 
-  async obtenerDisponibles() {
-    const repartidores = await repartidorRepository.obtenerDisponibles();
-    return repartidores.map(this.#convertirSalida);
+  async obtenerDisponibles(restauranteId) {
+    return repartidorRepository.obtenerDisponibles(restauranteId);
   }
 
-  async crear(datos) {
-    await this.#validarRepartidor(datos);
-    const datosProcesados = this.#convertirEntrada(datos);
-    const creado = await repartidorRepository.crear(datosProcesados);
-    return this.#convertirSalida(creado);
+  async crear(datos, restauranteId) {
+    return repartidorRepository.crear({ ...datos }, restauranteId);
   }
 
-  async actualizar(id, datos) {
-    await this.#validarRepartidor(datos, id);
-    const datosProcesados = this.#convertirEntrada(datos);
-    const actualizado = await repartidorRepository.actualizar(id, datosProcesados);
-    return this.#convertirSalida(actualizado);
+  async actualizar(id, datos, restauranteId) {
+    return repartidorRepository.actualizar(id, { ...datos }, restauranteId);
   }
 
-  async eliminar(id) {
-    // Marcamos como inactivo en lugar de eliminar
-    const actualizado = await repartidorRepository.actualizar(id, { activo: false });
-    return this.#convertirSalida(actualizado);
+  async eliminar(id, restauranteId) {
+    return repartidorRepository.actualizar(id, { activo: false }, restauranteId);
   }
 
-  async buscarPorNombre(nombre) {
-    const repartidores = await repartidorRepository.buscarPorNombre(nombre);
-    return repartidores.map(this.#convertirSalida);
-  }
-
-  async #validarRepartidor(datos, idActual = null) {
-    // Validar teléfono único
-    if (datos.telefono) {
-      const { Op } = await import('sequelize');
-      const condiciones = {
-        telefono: datos.telefono,
-        activo: true
-      };
-      
-      if (idActual) {
-        condiciones.id = { [Op.ne]: idActual };
-      }
-      
-      const existente = await repartidorRepository.buscar(condiciones);
-      if (existente.length > 0) {
-        throw new Error(`Ya existe un repartidor con el teléfono: ${datos.telefono}`);
-      }
-    }
-  }
-
-  #convertirSalida(repartidor) {
-    const obj = repartidor.toJSON ? repartidor.toJSON() : repartidor;
-    return obj;
-  }
-
-  #convertirEntrada(datos) {
-    return { ...datos };
+  async buscarPorNombre(nombre, restauranteId) {
+    return repartidorRepository.buscarPorNombre(nombre, restauranteId);
   }
 }
 

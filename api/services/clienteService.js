@@ -1,88 +1,33 @@
-import clienteRepository from '../repositories/clienteRepository.js';
+import clienteRepository from "../repositories/clienteRepository.js";
 
 class ClienteService {
-  async obtenerTodos() {
-    const clientes = await clienteRepository.obtenerTodos();
-    return clientes.map(this.#convertirSalida);
+  async obtenerTodos(restauranteId) {
+    return clienteRepository.obtenerTodos(restauranteId);
   }
 
-  async obtenerPorId(id) {
-    const cliente = await clienteRepository.obtenerPorId(id);
-    return cliente ? this.#convertirSalida(cliente) : null;
+  async obtenerPorId(id, restauranteId) {
+    return clienteRepository.obtenerPorId(id, restauranteId);
   }
 
-  async crear(datos) {
-    await this.#validarCliente(datos);
-    const datosProcesados = this.#convertirEntrada(datos);
-    const creado = await clienteRepository.crear(datosProcesados);
-    return this.#convertirSalida(creado);
+  async crear(datos, restauranteId) {
+    return clienteRepository.crear(this.#convertirEntrada(datos), restauranteId);
   }
 
-  async actualizar(id, datos) {
-    await this.#validarCliente(datos, id);
-    const datosProcesados = this.#convertirEntrada(datos);
-    const actualizado = await clienteRepository.actualizar(id, datosProcesados);
-    return this.#convertirSalida(actualizado);
+  async actualizar(id, datos, restauranteId) {
+    return clienteRepository.actualizar(id, this.#convertirEntrada(datos), restauranteId);
   }
 
-  async eliminar(id) {
-    // En lugar de eliminar, marcamos como inactivo
-    const actualizado = await clienteRepository.actualizar(id, { activo: false });
-    return this.#convertirSalida(actualizado);
+  async eliminar(id, restauranteId) {
+    return clienteRepository.actualizar(id, { activo: false }, restauranteId);
   }
 
-  async buscarPorNombre(nombre) {
-    const clientes = await clienteRepository.buscarPorNombre(nombre);
-    return clientes.map(this.#convertirSalida);
-  }
-
-  async #validarCliente(datos, idActual = null) {
-    // Validar email único
-    if (datos.email) {
-      const { Op } = await import('sequelize');
-      const condiciones = {
-        email: datos.email,
-        activo: true
-      };
-      
-      if (idActual) {
-        condiciones.id = { [Op.ne]: idActual };
-      }
-      
-      const existente = await clienteRepository.buscar(condiciones);
-      if (existente.length > 0) {
-        throw new Error(`Ya existe un cliente registrado con el email: ${datos.email}`);
-      }
-    }
-
-    // Validar teléfono único
-    if (datos.telefono) {
-      const { Op } = await import('sequelize');
-      const condiciones = {
-        telefono: datos.telefono,
-        activo: true
-      };
-      
-      if (idActual) {
-        condiciones.id = { [Op.ne]: idActual };
-      }
-      
-      const existente = await clienteRepository.buscar(condiciones);
-      if (existente.length > 0) {
-        throw new Error(`Ya existe un cliente registrado con el teléfono: ${datos.telefono}`);
-      }
-    }
-  }
-
-  #convertirSalida(cliente) {
-    const obj = cliente.toJSON ? cliente.toJSON() : cliente;
-    return obj;
+  async buscarPorNombre(nombre, restauranteId) {
+    return clienteRepository.buscarPorNombre(nombre, restauranteId);
   }
 
   #convertirEntrada(datos) {
-    // Eliminar campos no necesarios para la BD
-    const { confirmarEmail, confirmarTelefono, ...datosProcesados } = datos;
-    return { ...datosProcesados };
+    const { confirmarEmail, confirmarTelefono, ...resto } = datos;
+    return resto;
   }
 }
 

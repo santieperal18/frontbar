@@ -6,54 +6,31 @@ class RepartidorRepository extends RepositorioBase {
     super(Repartidor);
   }
 
-  async obtenerTodos() {
+  async obtenerTodos(restauranteId) {
     return this.modelo.findAll({
-      where: { activo: true },
+      where: { activo: true, restauranteId },
       order: [["apellido", "ASC"], ["nombre", "ASC"]]
     });
   }
 
-  async obtenerDisponibles() {
+  async obtenerDisponibles(restauranteId) {
     return this.modelo.findAll({
-      where: { 
-        activo: true,
-        // Aquí podrías agregar lógica para verificar si está ocupado
-      },
+      where: { activo: true, restauranteId },
       order: [["apellido", "ASC"]]
     });
   }
 
-  async buscarPorNombre(nombre) {
-    const { Op } = await import('sequelize');
+  async buscarPorNombre(nombre, restauranteId) {
+    const { Op } = await import("sequelize");
     return this.modelo.findAll({
       where: {
         [Op.or]: [
           { nombre: { [Op.like]: `%${nombre}%` } },
           { apellido: { [Op.like]: `%${nombre}%` } }
         ],
-        activo: true
+        activo: true,
+        restauranteId
       }
-    });
-  }
-
-  async obtenerConPedidosHoy() {
-    const { Op } = await import('sequelize');
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-    const manana = new Date(hoy);
-    manana.setDate(manana.getDate() + 1);
-    
-    return this.modelo.findAll({
-      include: [{
-        association: 'pedidos',
-        where: {
-          fecha: {
-            [Op.between]: [hoy, manana]
-          }
-        },
-        required: false
-      }],
-      where: { activo: true }
     });
   }
 }

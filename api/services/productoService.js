@@ -1,80 +1,63 @@
-import productoRepository from '../repositories/productoRepository.js';
-import categoriaRepository from '../repositories/categoriaRepository.js';
+import categoriaRepository from "../repositories/categoriaRepository.js";
+import productoRepository from "../repositories/productoRepository.js";
 
 class ProductoService {
-  async obtenerTodos() {
-    const productos = await productoRepository.obtenerTodos();
+  async obtenerTodos(restauranteId, incluirOcultos = false) {
+    const productos = await productoRepository.obtenerTodos(restauranteId, incluirOcultos);
     return productos.map(this.#convertirSalida);
   }
 
-  async obtenerPorId(id) {
-    const producto = await productoRepository.obtenerPorId(id);
+  async obtenerPorId(id, restauranteId) {
+    const producto = await productoRepository.obtenerPorId(id, restauranteId);
     return producto ? this.#convertirSalida(producto) : null;
   }
 
-  async obtenerPorCategoria(idCategoria) {
-    const productos = await productoRepository.obtenerPorCategoria(idCategoria);
+  async obtenerPorCategoria(idCategoria, restauranteId) {
+    const productos = await productoRepository.obtenerPorCategoria(idCategoria, restauranteId);
     return productos.map(this.#convertirSalida);
   }
 
-  async obtenerPorTipo(tipo) {
-    const productos = await productoRepository.obtenerPorTipo(tipo);
+  async obtenerPorTipo(tipo, restauranteId) {
+    const productos = await productoRepository.obtenerPorTipo(tipo, restauranteId);
     return productos.map(this.#convertirSalida);
   }
 
-  async crear(datos) {
-    await this.#validarProducto(datos);
-    await this.#validarCategoria(datos.idCategoria);
-    
-    const datosProcesados = this.#convertirEntrada(datos);
-    const creado = await productoRepository.crear(datosProcesados);
+  async crear(datos, restauranteId) {
+    await this.#validarProducto(datos, null, restauranteId);
+    await this.#validarCategoria(datos.idCategoria, restauranteId);
+    const creado = await productoRepository.crear(this.#convertirEntrada(datos), restauranteId);
     return this.#convertirSalida(creado);
   }
 
-  async actualizar(id, datos) {
-    await this.#validarProducto(datos, id);
+  async actualizar(id, datos, restauranteId) {
+    await this.#validarProducto(datos, id, restauranteId);
     if (datos.idCategoria) {
-      await this.#validarCategoria(datos.idCategoria);
+      await this.#validarCategoria(datos.idCategoria, restauranteId);
     }
-    
-    const datosProcesados = this.#convertirEntrada(datos);
-    const actualizado = await productoRepository.actualizar(id, datosProcesados);
+    const actualizado = await productoRepository.actualizar(id, this.#convertirEntrada(datos), restauranteId);
     return this.#convertirSalida(actualizado);
   }
 
-  async eliminar(id) {
-    // Marcamos como no disponible en lugar de eliminar
-    const actualizado = await productoRepository.actualizar(id, { disponible: false });
+  async eliminar(id, restauranteId) {
+    const actualizado = await productoRepository.actualizar(id, { disponible: false }, restauranteId);
     return this.#convertirSalida(actualizado);
   }
 
-  async #validarProducto(datos, idActual = null) {
-    // Validar nombre único
+  async #validarProducto(datos, idActual, restauranteId) {
     if (datos.nombre) {
-      const { Op } = await import('sequelize');
-      const condiciones = {
+      const { Op } = await import("sequelize");
+      const existente = await productoRepository.buscar({
         nombre: datos.nombre,
-        disponible: true
-      };
-      
-      if (idActual) {
-        condiciones.id = { [Op.ne]: idActual };
-      }
-      
-      const existente = await productoRepository.buscar(condiciones);
+        ...(idActual ? { id: { [Op.ne]: idActual } } : {})
+      }, {}, restauranteId);
       if (existente.length > 0) {
         throw new Error(`Ya existe un producto con el nombre: ${datos.nombre}`);
       }
     }
-
-    // Validar precio positivo
-    if (datos.precio && parseFloat(datos.precio) <= 0) {
-      throw new Error("El precio debe ser mayor a cero");
-    }
   }
 
-  async #validarCategoria(idCategoria) {
-    const categoria = await categoriaRepository.obtenerPorId(idCategoria);
+  async #validarCategoria(idCategoria, restauranteId) {
+    const categoria = await categoriaRepository.obtenerPorId(idCategoria, restauranteId);
     if (!categoria) {
       throw new Error(`La categoría con ID ${idCategoria} no existe`);
     }
@@ -82,15 +65,24 @@ class ProductoService {
 
   #convertirSalida(producto) {
     const obj = producto.toJSON ? producto.toJSON() : producto;
-    // Convertir precio a número decimal
-    if (obj.precio) {
-      obj.precio = parseFloat(obj.precio);
-    }
+    obj.precio = parseFloat(obj.precio || 0);
+    obj.precioSalon = parseFloat(obj.precioSalon || obj.precio || 0);
+    obj.precioMostrador = parseFloat(obj.precioMostrador || obj.precio || 0);
+    obj.stockActual = Number(obj.stockActual || 0);
     return obj;
   }
 
   #convertirEntrada(datos) {
-    return { ...datos };
+    const precioMostrador = parseFloat(datos.precioMostrador ?? datos.precio ?? 0);
+    const precioSalon = parseFloat(datos.precioSalon ?? datos.precio ?? precioMostrador);
+    return {
+      ...datos,
+      precio: precioMostrador,
+      precioMostrador,
+      precioSalon,
+      controlaStock: Boolean(datos.controlaStock),
+      stockActual: Number(datos.stockActual || 0)
+    };
   }
 }
 

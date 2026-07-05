@@ -1,5 +1,6 @@
 import { DataTypes, Model } from "sequelize";
 import sequelize from "../db.js";
+import Restaurante from "./restaurante.js";
 
 class Usuario extends Model {}
 
@@ -23,9 +24,15 @@ Usuario.init(
       field: "contrasena"
     },
     roles: {
-      type: DataTypes.TEXT, // JSON stringified array
+      type: DataTypes.TEXT,
       defaultValue: "owner",
       field: "roles"
+    },
+    restauranteId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 1,
+      field: "restaurante_id"
     }
   },
   {
@@ -35,5 +42,15 @@ Usuario.init(
     timestamps: false
   }
 );
+
+Usuario.belongsTo(Restaurante, {
+  foreignKey: "restauranteId",
+  as: "restaurante"
+});
+
+Restaurante.hasMany(Usuario, {
+  foreignKey: "restauranteId",
+  as: "usuarios"
+});
 
 export default Usuario;

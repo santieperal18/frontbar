@@ -7,25 +7,29 @@ class CategoriaRepository extends RepositorioBase {
     super(Categoria);
   }
 
-  async obtenerTodos() {
+  async obtenerTodos(restauranteId) {
     return this.modelo.findAll({
+      where: { restauranteId },
       order: [["tipo", "ASC"], ["nombre", "ASC"]]
     });
   }
 
-  async obtenerPorTipo(tipo) {
+  async obtenerPorTipo(tipo, restauranteId) {
     return this.modelo.findAll({
-      where: { tipo },
+      where: { tipo, restauranteId },
       order: [["nombre", "ASC"]]
     });
   }
 
-  async obtenerConProductos(id) {
-    return this.modelo.findByPk(id, {
-      include: {
+  async obtenerConProductos(id, restauranteId) {
+    return this.modelo.findOne({
+      where: { id, restauranteId },
+      include: [{
         model: Producto,
-        as: "productos"
-      }
+        as: "productos",
+        required: false,
+        where: { restauranteId }
+      }]
     });
   }
 }

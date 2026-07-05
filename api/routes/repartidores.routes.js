@@ -3,76 +3,59 @@ import repartidorService from "../services/repartidorService.js";
 
 const router = express.Router();
 
-// Obtener todos los repartidores
 router.get("/", async (req, res) => {
   try {
-    const repartidores = await repartidorService.obtenerTodos();
-    res.json(repartidores);
+    res.json(await repartidorService.obtenerTodos(req.usuario.restauranteId));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Obtener repartidores disponibles
 router.get("/disponibles", async (req, res) => {
   try {
-    const repartidores = await repartidorService.obtenerDisponibles();
-    res.json(repartidores);
+    res.json(await repartidorService.obtenerDisponibles(req.usuario.restauranteId));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Obtener repartidor por ID
 router.get("/:id", async (req, res) => {
   try {
-    const repartidor = await repartidorService.obtenerPorId(parseInt(req.params.id));
-    if (!repartidor) {
-      return res.status(404).json({ error: "Repartidor no encontrado" });
-    }
+    const repartidor = await repartidorService.obtenerPorId(parseInt(req.params.id), req.usuario.restauranteId);
+    if (!repartidor) return res.status(404).json({ error: "Repartidor no encontrado" });
     res.json(repartidor);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Buscar repartidores por nombre
 router.get("/buscar/:nombre", async (req, res) => {
   try {
-    const repartidores = await repartidorService.buscarPorNombre(req.params.nombre);
-    res.json(repartidores);
+    res.json(await repartidorService.buscarPorNombre(req.params.nombre, req.usuario.restauranteId));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Crear nuevo repartidor
 router.post("/", async (req, res) => {
   try {
-    const repartidorCreado = await repartidorService.crear(req.body);
-    res.status(201).json(repartidorCreado);
+    res.status(201).json(await repartidorService.crear(req.body, req.usuario.restauranteId));
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-// Actualizar repartidor
 router.put("/:id", async (req, res) => {
   try {
-    const repartidorActualizado = await repartidorService.actualizar(
-      parseInt(req.params.id),
-      req.body
-    );
-    res.json(repartidorActualizado);
+    res.json(await repartidorService.actualizar(parseInt(req.params.id), req.body, req.usuario.restauranteId));
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-// Eliminar repartidor (marcar como inactivo)
 router.delete("/:id", async (req, res) => {
   try {
-    await repartidorService.eliminar(parseInt(req.params.id));
+    await repartidorService.eliminar(parseInt(req.params.id), req.usuario.restauranteId);
     res.status(204).end();
   } catch (err) {
     res.status(404).json({ error: err.message });

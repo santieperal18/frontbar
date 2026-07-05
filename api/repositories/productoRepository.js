@@ -7,38 +7,37 @@ class ProductoRepository extends RepositorioBase {
     super(Producto);
   }
 
-  async obtenerTodos() {
+  async obtenerTodos(restauranteId, incluirOcultos = false) {
     return this.modelo.findAll({
-      where: { disponible: true },
-      include: {
+      where: { restauranteId, ...(incluirOcultos ? {} : { disponible: true }) },
+      include: [{
         model: Categoria,
-        as: "categoria"
-      },
+        as: "categoria",
+        where: { restauranteId }
+      }],
       order: [["nombre", "ASC"]]
     });
   }
 
-  async obtenerPorCategoria(idCategoria) {
+  async obtenerPorCategoria(idCategoria, restauranteId) {
     return this.modelo.findAll({
-      where: { 
-        idCategoria,
-        disponible: true 
-      },
-      include: {
+      where: { idCategoria, restauranteId, disponible: true },
+      include: [{
         model: Categoria,
-        as: "categoria"
-      }
+        as: "categoria",
+        where: { restauranteId }
+      }]
     });
   }
 
-  async obtenerPorTipo(tipo) {
+  async obtenerPorTipo(tipo, restauranteId) {
     return this.modelo.findAll({
-      include: {
+      include: [{
         model: Categoria,
         as: "categoria",
-        where: { tipo }
-      },
-      where: { disponible: true }
+        where: { tipo, restauranteId }
+      }],
+      where: { disponible: true, restauranteId }
     });
   }
 }

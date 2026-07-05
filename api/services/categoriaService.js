@@ -1,77 +1,47 @@
-import categoriaRepository from '../repositories/categoriaRepository.js';
+import categoriaRepository from "../repositories/categoriaRepository.js";
 
 class CategoriaService {
-  async obtenerTodos() {
-    const categorias = await categoriaRepository.obtenerTodos();
-    return categorias.map(this.#convertirSalida);
+  async obtenerTodos(restauranteId) {
+    return categoriaRepository.obtenerTodos(restauranteId);
   }
 
-  async obtenerPorId(id) {
-    const categoria = await categoriaRepository.obtenerPorId(id);
-    return categoria ? this.#convertirSalida(categoria) : null;
+  async obtenerPorId(id, restauranteId) {
+    return categoriaRepository.obtenerPorId(id, restauranteId);
   }
 
-  async obtenerPorTipo(tipo) {
-    const categorias = await categoriaRepository.obtenerPorTipo(tipo);
-    return categorias.map(this.#convertirSalida);
+  async obtenerPorTipo(tipo, restauranteId) {
+    return categoriaRepository.obtenerPorTipo(tipo, restauranteId);
   }
 
-  async crear(datos) {
-    await this.#validarCategoria(datos);
-    const datosProcesados = this.#convertirEntrada(datos);
-    const creado = await categoriaRepository.crear(datosProcesados);
-    return this.#convertirSalida(creado);
+  async crear(datos, restauranteId) {
+    await this.#validarCategoria(datos, null, restauranteId);
+    return categoriaRepository.crear({ ...datos }, restauranteId);
   }
 
-  async actualizar(id, datos) {
-    await this.#validarCategoria(datos, id);
-    const datosProcesados = this.#convertirEntrada(datos);
-    const actualizado = await categoriaRepository.actualizar(id, datosProcesados);
-    return this.#convertirSalida(actualizado);
+  async actualizar(id, datos, restauranteId) {
+    await this.#validarCategoria(datos, id, restauranteId);
+    return categoriaRepository.actualizar(id, { ...datos }, restauranteId);
   }
 
-  async eliminar(id) {
-    // Verificar que no haya productos asociados
-    const categoria = await categoriaRepository.obtenerConProductos(id);
-    if (categoria && categoria.productos && categoria.productos.length > 0) {
-      throw new Error('No se puede eliminar la categoría porque tiene productos asociados');
+  async eliminar(id, restauranteId) {
+    const categoria = await categoriaRepository.obtenerConProductos(id, restauranteId);
+    if (categoria?.productos?.length) {
+      throw new Error("No se puede eliminar la categoría porque tiene productos asociados");
     }
-    
-    return await categoriaRepository.eliminar(id);
+    return categoriaRepository.eliminar(id, restauranteId);
   }
 
-  async #validarCategoria(datos, idActual = null) {
-    // Validar nombre único
+  async #validarCategoria(datos, idActual, restauranteId) {
     if (datos.nombre) {
-      const { Op } = await import('sequelize');
-      const condiciones = {
-        nombre: datos.nombre
-      };
-      
-      if (idActual) {
-        condiciones.id = { [Op.ne]: idActual };
-      }
-      
-      const existente = await categoriaRepository.buscar(condiciones);
+      const { Op } = await import("sequelize");
+      const existente = await categoriaRepository.buscar({
+        nombre: datos.nombre,
+        ...(idActual ? { id: { [Op.ne]: idActual } } : {})
+      }, {}, restauranteId);
       if (existente.length > 0) {
         throw new Error(`Ya existe una categoría con el nombre: ${datos.nombre}`);
       }
     }
-
-    // Validar tipo válido
-    const tiposValidos = ['desayuno', 'comida', 'bebida'];
-    if (datos.tipo && !tiposValidos.includes(datos.tipo)) {
-      throw new Error(`Tipo inválido. Tipos válidos: ${tiposValidos.join(', ')}`);
-    }
-  }
-
-  #convertirSalida(categoria) {
-    const obj = categoria.toJSON ? categoria.toJSON() : categoria;
-    return obj;
-  }
-
-  #convertirEntrada(datos) {
-    return { ...datos };
   }
 }
 

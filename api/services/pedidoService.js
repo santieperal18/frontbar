@@ -1,180 +1,179 @@
-import pedidoRepository from '../repositories/pedidoRepository.js';
-import clienteRepository from '../repositories/clienteRepository.js';
-import productoRepository from '../repositories/productoRepository.js';
-import repartidorRepository from '../repositories/repartidorRepository.js';
+import productoRepository from "../repositories/productoRepository.js";
+import clienteRepository from "../repositories/clienteRepository.js";
+import repartidorRepository from "../repositories/repartidorRepository.js";
+import pedidoRepository from "../repositories/pedidoRepository.js";
+import mesaRepository from "../repositories/mesaRepository.js";
 
 class PedidoService {
-  async obtenerTodos({ pagina = 1, limite = 10 } = {}) {
-    const pedidos = await pedidoRepository.obtenerTodos({ pagina, limite });
+  async obtenerTodos({ pagina = 1, limite = 10 } = {}, restauranteId) {
+    const pedidos = await pedidoRepository.obtenerTodos({ pagina, limite }, restauranteId);
     return pedidos.map(this.#convertirSalida);
   }
 
-  async obtenerPorId(id) {
-    const pedido = await pedidoRepository.obtenerPorId(id);
+  async obtenerPorId(id, restauranteId) {
+    const pedido = await pedidoRepository.obtenerPorId(id, restauranteId);
     return pedido ? this.#convertirSalida(pedido) : null;
   }
 
-  async obtenerPorCliente(idCliente) {
-    const pedidos = await pedidoRepository.obtenerPorCliente(idCliente);
+  async obtenerPorCliente(idCliente, restauranteId) {
+    const pedidos = await pedidoRepository.obtenerPorCliente(idCliente, restauranteId);
     return pedidos.map(this.#convertirSalida);
   }
 
-  async filtrar(filtros) {
-    const pedidos = await pedidoRepository.filtrar(filtros);
+  async filtrar(filtros, restauranteId) {
+    const pedidos = await pedidoRepository.filtrar(filtros, restauranteId);
     return pedidos.map(this.#convertirSalida);
   }
 
-  async crear(datos) {
-    // Validar que haya productos
-    if (!datos.productos || datos.productos.length === 0) {
+  async crear(datos, restauranteId) {
+    if (!datos.productos?.length) {
       throw new Error("El pedido debe tener al menos un producto");
     }
-    
-    console.log("📦 Datos recibidos para crear pedido:", datos);
-    
-    // Preparar datos del pedido
+
     const datosPedido = {
       idCliente: datos.idCliente ? parseInt(datos.idCliente) : null,
-      idRepartidor: datos.tipoEntrega === 'delivery' && datos.idRepartidor 
-        ? parseInt(datos.idRepartidor) 
-        : null,
-      tipoEntrega: datos.tipoEntrega || 'local',
+      idRepartidor: datos.tipoEntrega === "delivery" && datos.idRepartidor ? parseInt(datos.idRepartidor) : null,
+      idMesa: datos.idMesa ? parseInt(datos.idMesa) : null,
+      tipoEntrega: this.#normalizarCanal(datos.tipoEntrega, datos.idMesa),
       direccionEntrega: datos.direccionEntrega || null,
       observaciones: datos.observaciones || null,
-      estado: datos.estado || 'pendiente',
-      total: 0 // Se calculará después
+      estado: datos.estado || "pendiente",
+      estadoPago: datos.estadoPago || "pendiente",
+      total: 0
     };
-    
-    // Validar cliente si se especifica
+
     if (datosPedido.idCliente) {
-      const cliente = await clienteRepository.obtenerPorId(datosPedido.idCliente);
+      const cliente = await clienteRepository.obtenerPorId(datosPedido.idCliente, restauranteId);
       if (!cliente) {
         throw new Error(`Cliente con ID ${datosPedido.idCliente} no encontrado`);
       }
     }
-    
-    // Validar repartidor si es delivery
-    if (datosPedido.tipoEntrega === 'delivery' && datosPedido.idRepartidor) {
-      const repartidor = await repartidorRepository.obtenerPorId(datosPedido.idRepartidor);
+
+    if (datosPedido.idRepartidor) {
+      const repartidor = await repartidorRepository.obtenerPorId(datosPedido.idRepartidor, restauranteId);
       if (!repartidor || !repartidor.activo) {
         throw new Error(`Repartidor con ID ${datosPedido.idRepartidor} no encontrado o inactivo`);
       }
     }
-    
-    // Validar productos
+
     const productosValidos = [];
     for (const productoPedido of datos.productos) {
-      const producto = await productoRepository.obtenerPorId(productoPedido.id);
+      const producto = await productoRepository.obtenerPorId(productoPedido.id, restauranteId);
       if (!producto || !producto.disponible) {
         throw new Error(`Producto con ID ${productoPedido.id} no encontrado o no disponible`);
       }
-      
+
+      const precioSeleccionado = datosPedido.tipoEntrega === "salon"
+        ? parseFloat(producto.precioSalon || producto.precio)
+        : parseFloat(producto.precioMostrador || producto.precio);
+
       productosValidos.push({
         id: producto.id,
-        cantidad: productoPedido.cantidad || 1,
-        precio: parseFloat(producto.precio),
-        subtotal: parseFloat(producto.precio) * (productoPedido.cantidad || 1)
+        cantidad: Number(productoPedido.cantidad || 1),
+        precio: precioSeleccionado
       });
     }
-    
-    // Calcular total
-    const total = productosValidos.reduce((sum, p) => sum + p.subtotal, 0);
-    datosPedido.total = total;
-    
-    console.log("✅ Datos procesados del pedido:", datosPedido);
-    console.log("✅ Productos validados:", productosValidos);
-    
-    // Crear el pedido con productos
-    const creado = await pedidoRepository.crearConProductos(datosPedido, productosValidos);
+
+    const creado = await pedidoRepository.crearConProductos(datosPedido, productosValidos, restauranteId);
+    await this.#actualizarStock(productosValidos, restauranteId, "descontar");
+
+    if (datosPedido.idMesa) {
+      await mesaRepository.actualizar(datosPedido.idMesa, { estado: "ocupada" }, restauranteId);
+    }
+
     return this.#convertirSalida(creado);
   }
 
-  async actualizar(id, datos) {
-    console.log("📝 Actualizando pedido ID:", id);
-    console.log("📝 Datos para actualizar:", datos);
-    
-    // Preparar datos para actualización
-    const datosActualizacion = {};
-    
-    if (datos.idCliente !== undefined) {
-      datosActualizacion.idCliente = datos.idCliente ? parseInt(datos.idCliente) : null;
-    }
-    
-    if (datos.idRepartidor !== undefined) {
-      datosActualizacion.idRepartidor = datos.idRepartidor ? parseInt(datos.idRepartidor) : null;
-    }
-    
-    if (datos.tipoEntrega !== undefined) {
-      datosActualizacion.tipoEntrega = datos.tipoEntrega;
-    }
-    
-    if (datos.direccionEntrega !== undefined) {
-      datosActualizacion.direccionEntrega = datos.direccionEntrega;
-    }
-    
-    if (datos.observaciones !== undefined) {
-      datosActualizacion.observaciones = datos.observaciones;
-    }
-    
-    if (datos.estado !== undefined) {
-      datosActualizacion.estado = datos.estado;
-    }
-    
-    console.log("✅ Datos procesados para actualización:", datosActualizacion);
-    
-    const actualizado = await pedidoRepository.actualizar(id, datosActualizacion);
+  async actualizar(id, datos, restauranteId) {
+    const actualizado = await pedidoRepository.actualizar(id, { ...datos }, restauranteId);
     return this.#convertirSalida(actualizado);
   }
 
-  async actualizarEstado(id, estado) {
-    const estadosValidos = ['pendiente', 'preparando', 'en_camino', 'entregado', 'cancelado'];
-    
-    if (!estadosValidos.includes(estado)) {
-      throw new Error(`Estado inválido. Estados válidos: ${estadosValidos.join(', ')}`);
+  async actualizarEstado(id, estado, restauranteId) {
+    const actualizado = await pedidoRepository.actualizar(id, { estado }, restauranteId);
+    if (estado === "cancelado") {
+      await this.#reponerStockDesdePedido(id, restauranteId);
     }
-    
-    const actualizado = await pedidoRepository.actualizar(id, { estado });
     return this.#convertirSalida(actualizado);
   }
 
-  async eliminar(id) {
-    return await pedidoRepository.eliminar(id);
+  async marcarPidiendoCuenta(id, restauranteId) {
+    const pedido = await pedidoRepository.obtenerPorId(id, restauranteId);
+    if (!pedido) {
+      throw new Error("Pedido no encontrado");
+    }
+    if (pedido.idMesa) {
+      await mesaRepository.actualizar(pedido.idMesa, { estado: "pidiendo_cuenta" }, restauranteId);
+    }
+    const actualizado = await pedidoRepository.actualizar(id, { estadoPago: "pidiendo_cuenta" }, restauranteId);
+    return this.#convertirSalida(actualizado);
+  }
+
+  async obtenerComandasCocina(restauranteId) {
+    const fecha = new Date().toISOString().split("T")[0];
+    const pedidos = await pedidoRepository.filtrar({
+      fechaDesde: fecha,
+      fechaHasta: fecha,
+      estados: ["pendiente", "preparando", "listo"]
+    }, restauranteId);
+    return pedidos.map(this.#convertirSalida);
+  }
+
+  async avanzarEstadoCocina(id, restauranteId) {
+    const pedido = await pedidoRepository.obtenerPorId(id, restauranteId);
+    if (!pedido) {
+      throw new Error("Pedido no encontrado");
+    }
+    const secuencia = ["pendiente", "preparando", "listo"];
+    const indice = secuencia.indexOf(pedido.estado);
+    const estado = indice === -1 || indice === secuencia.length - 1 ? "listo" : secuencia[indice + 1];
+    const actualizado = await pedidoRepository.actualizar(id, { estado }, restauranteId);
+    return this.#convertirSalida(actualizado);
+  }
+
+  async eliminar(id, restauranteId) {
+    return pedidoRepository.eliminar(id, restauranteId);
+  }
+
+  #normalizarCanal(tipoEntrega, idMesa) {
+    if (idMesa) return "salon";
+    if (tipoEntrega === "delivery") return "delivery";
+    if (tipoEntrega === "local") return "mostrador";
+    return tipoEntrega || "mostrador";
+  }
+
+  async #actualizarStock(productosPedido, restauranteId, modo) {
+    for (const item of productosPedido) {
+      const producto = await productoRepository.obtenerPorId(item.id, restauranteId);
+      if (!producto?.controlaStock) continue;
+      const actual = Number(producto.stockActual || 0);
+      const cantidad = Number(item.cantidad || 0);
+      const stockActual = modo === "descontar" ? Math.max(0, actual - cantidad) : actual + cantidad;
+      await productoRepository.actualizar(producto.id, { stockActual }, restauranteId);
+    }
+  }
+
+  async #reponerStockDesdePedido(idPedido, restauranteId) {
+    const pedido = await pedidoRepository.obtenerPorId(idPedido, restauranteId);
+    if (!pedido?.productos?.length) return;
+    const productos = pedido.productos.map((producto) => ({
+      id: producto.id,
+      cantidad: producto.PedidoProducto?.cantidad || producto.cantidad || 0
+    }));
+    await this.#actualizarStock(productos, restauranteId, "reponer");
   }
 
   #convertirSalida(pedido) {
     const obj = pedido.toJSON ? pedido.toJSON() : pedido;
-    
-    // Formatear fechas
-    if (obj.fecha && typeof obj.fecha === 'string') {
-      obj.fecha = new Date(obj.fecha).toISOString();
-    }
-    
-    // Convertir números
-    if (obj.total) {
-      obj.total = parseFloat(obj.total);
-    }
-    
-    // Asegurar que los productos tengan la estructura correcta
+    obj.total = parseFloat(obj.total || 0);
     if (obj.productos) {
-      obj.productos = obj.productos.map(producto => {
+      obj.productos = obj.productos.map((producto) => {
         const prod = producto.toJSON ? producto.toJSON() : producto;
-        if (prod.precio) {
-          prod.precio = parseFloat(prod.precio);
-        }
-        if (prod.PedidoProducto) {
-          prod.cantidad = prod.PedidoProducto.cantidad;
-          prod.precioUnitario = parseFloat(prod.PedidoProducto.precioUnitario);
-          prod.subtotal = parseFloat(prod.PedidoProducto.subtotal);
-        }
+        prod.precio = parseFloat(prod.precio || 0);
         return prod;
       });
     }
-    
     return obj;
-  }
-
-  #convertirEntrada(datos) {
-    return { ...datos };
   }
 }
 

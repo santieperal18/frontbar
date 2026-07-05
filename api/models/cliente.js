@@ -1,5 +1,6 @@
 import { DataTypes, Model } from "sequelize";
 import sequelize from "../db.js";
+import Restaurante from "./restaurante.js";
 
 class Cliente extends Model {}
 
@@ -45,6 +46,12 @@ Cliente.init(
       type: DataTypes.BOOLEAN,
       defaultValue: true,
       field: "activo"
+    },
+    restauranteId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 1,
+      field: "restaurante_id"
     }
   },
   {
@@ -54,5 +61,10 @@ Cliente.init(
     timestamps: false
   }
 );
+
+Cliente.belongsTo(Restaurante, {
+  foreignKey: "restauranteId",
+  as: "restaurante"
+});
 
 export default Cliente;

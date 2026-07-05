@@ -1,5 +1,6 @@
 import { DataTypes, Model } from "sequelize";
 import sequelize from "../db.js";
+import Restaurante from "./restaurante.js";
 
 class Repartidor extends Model {}
 
@@ -34,6 +35,12 @@ Repartidor.init(
       type: DataTypes.BOOLEAN,
       defaultValue: true,
       field: "activo"
+    },
+    restauranteId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 1,
+      field: "restaurante_id"
     }
   },
   {
@@ -43,5 +50,10 @@ Repartidor.init(
     timestamps: false
   }
 );
+
+Repartidor.belongsTo(Restaurante, {
+  foreignKey: "restauranteId",
+  as: "restaurante"
+});
 
 export default Repartidor;

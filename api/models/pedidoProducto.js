@@ -2,6 +2,7 @@ import { DataTypes, Model } from "sequelize";
 import sequelize from "../db.js";
 import Pedido from "./pedido.js";
 import Producto from "./producto.js";
+import Restaurante from "./restaurante.js";
 
 class PedidoProducto extends Model {}
 
@@ -16,20 +17,12 @@ PedidoProducto.init(
     idPedido: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      field: "id_pedido",
-      references: {
-        model: Pedido,
-        key: 'id'
-      }
+      field: "id_pedido"
     },
     idProducto: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      field: "id_producto",
-      references: {
-        model: Producto,
-        key: 'id'
-      }
+      field: "id_producto"
     },
     cantidad: {
       type: DataTypes.INTEGER,
@@ -46,6 +39,12 @@ PedidoProducto.init(
       type: DataTypes.DECIMAL(10, 2),
       allowNull: false,
       field: "subtotal"
+    },
+    restauranteId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 1,
+      field: "restaurante_id"
     }
   },
   {
@@ -56,19 +55,23 @@ PedidoProducto.init(
   }
 );
 
-// Asociaciones
 Pedido.belongsToMany(Producto, {
   through: PedidoProducto,
-  foreignKey: 'idPedido',
-  otherKey: 'idProducto',
-  as: 'productos'
+  foreignKey: "idPedido",
+  otherKey: "idProducto",
+  as: "productos"
 });
 
 Producto.belongsToMany(Pedido, {
   through: PedidoProducto,
-  foreignKey: 'idProducto',
-  otherKey: 'idPedido',
-  as: 'pedidos'
+  foreignKey: "idProducto",
+  otherKey: "idPedido",
+  as: "pedidos"
+});
+
+PedidoProducto.belongsTo(Restaurante, {
+  foreignKey: "restauranteId",
+  as: "restaurante"
 });
 
 export default PedidoProducto;

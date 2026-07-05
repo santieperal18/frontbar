@@ -1,6 +1,7 @@
 import { DataTypes, Model } from "sequelize";
 import sequelize from "../db.js";
 import Categoria from "./categoria.js";
+import Restaurante from "./restaurante.js";
 
 class Producto extends Model {}
 
@@ -26,6 +27,18 @@ Producto.init(
       allowNull: false,
       field: "precio"
     },
+    precioSalon: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false,
+      defaultValue: 0,
+      field: "precio_salon"
+    },
+    precioMostrador: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false,
+      defaultValue: 0,
+      field: "precio_mostrador"
+    },
     idCategoria: {
       type: DataTypes.INTEGER,
       allowNull: false,
@@ -39,6 +52,24 @@ Producto.init(
     imagen: {
       type: DataTypes.TEXT,
       field: "imagen"
+    },
+    controlaStock: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      field: "controla_stock"
+    },
+    stockActual: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      field: "stock_actual"
+    },
+    restauranteId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 1,
+      field: "restaurante_id"
     }
   },
   {
@@ -49,7 +80,6 @@ Producto.init(
   }
 );
 
-// Asociaciones
 Producto.belongsTo(Categoria, {
   foreignKey: "idCategoria",
   as: "categoria"
@@ -58,6 +88,11 @@ Producto.belongsTo(Categoria, {
 Categoria.hasMany(Producto, {
   foreignKey: "idCategoria",
   as: "productos"
+});
+
+Producto.belongsTo(Restaurante, {
+  foreignKey: "restauranteId",
+  as: "restaurante"
 });
 
 export default Producto;
