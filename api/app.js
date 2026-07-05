@@ -26,7 +26,7 @@ const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || "development";
 const SHOULD_ALTER_SCHEMA = process.env.DB_SYNC_ALTER
   ? process.env.DB_SYNC_ALTER === "true"
-  : NODE_ENV === "development";
+  : true;
 
 app.use(helmet());
 app.use(cors({
@@ -53,6 +53,19 @@ app.get("/", (req, res) => {
   res.send("Resto Bar API");
 });
 
+app.get("/api/health", async (req, res) => {
+  try {
+    await sequelize.authenticate();
+    res.json({
+      ok: true,
+      dialect: sequelize.getDialect(),
+      autoMigrate: SHOULD_ALTER_SCHEMA
+    });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
 app.use("/api/auth", authRouter);
 app.use("/api/clientes", verificarToken, clientesRouter);
 app.use("/api/productos", verificarToken, productosRouter);
@@ -76,7 +89,9 @@ app.use((err, req, res, next) => {
 (async function start() {
   try {
     await sequelize.authenticate();
+    console.log(`BD conectada con dialecto ${sequelize.getDialect()}`);
     await sequelize.sync({ alter: SHOULD_ALTER_SCHEMA });
+    console.log(`Modelos sincronizados (alter=${SHOULD_ALTER_SCHEMA})`);
     const restaurante = await usuarioService.crearUsuarioOwner();
     await mesaService.inicializar(restaurante.id, 12);
     await categoriaService.asegurarCategoriasBase(restaurante.id);
