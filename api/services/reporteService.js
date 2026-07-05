@@ -1,4 +1,5 @@
 import PDFDocument from "pdfkit";
+import { QueryTypes } from "sequelize";
 import sequelize from "../db.js";
 import pedidoRepository from "../repositories/pedidoRepository.js";
 import clienteRepository from "../repositories/clienteRepository.js";
@@ -47,8 +48,8 @@ class ReporteService {
     return sequelize.query(
       `SELECT p.nombre, SUM(pp.cantidad) as total_vendido, SUM(pp.subtotal) as total_ingresos
        FROM pedido_producto pp
-       JOIN producto p ON pp.id_producto = p.id
-       JOIN pedido ped ON pp.id_pedido = ped.id
+       JOIN producto p ON pp.id_producto = p.id AND p.restaurante_id = pp.restaurante_id
+       JOIN pedido ped ON pp.id_pedido = ped.id AND ped.restaurante_id = pp.restaurante_id
        WHERE ped.estado != 'cancelado'
        AND ped.restaurante_id = :restauranteId
        ${fechaInicio && fechaFin ? "AND ped.fecha BETWEEN :fechaInicio AND :fechaFin" : ""}
@@ -62,7 +63,7 @@ class ReporteService {
           fechaInicio: `${fechaInicio} 00:00:00`,
           fechaFin: `${fechaFin} 23:59:59`
         },
-        type: sequelize.QueryTypes.SELECT
+        type: QueryTypes.SELECT
       }
     );
   }
@@ -88,7 +89,7 @@ class ReporteService {
           fechaInicio: `${fechaInicio} 00:00:00`,
           fechaFin: `${fechaFin} 23:59:59`
         },
-        type: sequelize.QueryTypes.SELECT
+        type: QueryTypes.SELECT
       }
     );
   }
@@ -98,14 +99,14 @@ class ReporteService {
     return sequelize.query(
       `SELECT c.nombre, c.apellido, COUNT(p.id) as cantidad_pedidos, SUM(p.total) as total_gastado
        FROM pedido p
-       JOIN cliente c ON p.id_cliente = c.id
+       JOIN cliente c ON p.id_cliente = c.id AND c.restaurante_id = p.restaurante_id
        WHERE p.estado != 'cancelado' AND p.restaurante_id = :restauranteId
        GROUP BY c.id, c.nombre, c.apellido
        ORDER BY cantidad_pedidos DESC
        LIMIT :limitNum`,
       {
         replacements: { restauranteId, limitNum },
-        type: sequelize.QueryTypes.SELECT
+        type: QueryTypes.SELECT
       }
     );
   }
@@ -117,7 +118,7 @@ class ReporteService {
     return sequelize.query(
       `SELECT r.nombre, r.apellido, COUNT(p.id) as cantidad_entregas
        FROM repartidor r
-       JOIN pedido p ON p.id_repartidor = r.id
+       JOIN pedido p ON p.id_repartidor = r.id AND p.restaurante_id = r.restaurante_id
        WHERE p.estado != 'cancelado'
        AND p.restaurante_id = :restauranteId
        AND p.fecha BETWEEN :fechaInicio AND :fechaFin
@@ -125,7 +126,7 @@ class ReporteService {
        ORDER BY cantidad_entregas DESC`,
       {
         replacements: { restauranteId, fechaInicio, fechaFin },
-        type: sequelize.QueryTypes.SELECT
+        type: QueryTypes.SELECT
       }
     );
   }
@@ -151,7 +152,7 @@ class ReporteService {
           fechaInicio: `${fechaInicio} 00:00:00`,
           fechaFin: `${fechaFin} 23:59:59`
         },
-        type: sequelize.QueryTypes.SELECT
+        type: QueryTypes.SELECT
       }
     );
 
@@ -178,7 +179,7 @@ class ReporteService {
           fechaInicio: `${targetDate} 00:00:00`,
           fechaFin: `${targetDate} 23:59:59`
         },
-        type: sequelize.QueryTypes.SELECT
+        type: QueryTypes.SELECT
       }
     );
   }

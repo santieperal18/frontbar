@@ -26,7 +26,7 @@ const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || "development";
 const SHOULD_ALTER_SCHEMA = process.env.DB_SYNC_ALTER
   ? process.env.DB_SYNC_ALTER === "true"
-  : true;
+  : NODE_ENV !== "production";
 
 const allowedOrigins = [
   "http://localhost:5173",

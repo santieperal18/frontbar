@@ -1,3 +1,4 @@
+import { QueryTypes } from "sequelize";
 import sequelize from "../db.js";
 import turnoCajaRepository from "../repositories/turnoCajaRepository.js";
 import pagoPedidoRepository from "../repositories/pagoPedidoRepository.js";
@@ -84,7 +85,7 @@ class CajaService {
        GROUP BY metodo_pago`,
       {
         replacements: { restauranteId, idTurnoCaja },
-        type: sequelize.QueryTypes.SELECT
+        type: QueryTypes.SELECT
       }
     );
 

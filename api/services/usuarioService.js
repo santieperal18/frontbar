@@ -89,6 +89,9 @@ class UsuarioService {
 
     const usuarioExistente = await usuarioRepository.obtenerPorUsuario(process.env.ADMIN_USERNAME || "main");
     if (usuarioExistente) {
+      if (!usuarioExistente.restauranteId || usuarioExistente.restauranteId !== restaurante.id) {
+        await usuarioExistente.update({ restauranteId: restaurante.id });
+      }
       return restaurante;
     }
 

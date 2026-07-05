@@ -1,4 +1,4 @@
-import { Sequelize } from "sequelize";
+import { DataTypes, Sequelize } from "sequelize";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -169,6 +169,106 @@ function formatDbError(error) {
   };
 }
 
+function shouldUseSafeSync(alter) {
+  if (sequelize.getDialect() !== "postgres") {
+    return alter;
+  }
+
+  if (!alter) {
+    return false;
+  }
+
+  if (nodeEnv === "production") {
+    console.warn("DB_SYNC_ALTER=true ignorado en Postgres/produccion; se usan migraciones seguras.");
+    return false;
+  }
+
+  return true;
+}
+
+async function tableExists(queryInterface, tableName) {
+  try {
+    await queryInterface.describeTable(tableName);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function ensureColumn(queryInterface, tableName, columnName, definition) {
+  if (!(await tableExists(queryInterface, tableName))) {
+    return;
+  }
+
+  const table = await queryInterface.describeTable(tableName);
+  if (!table[columnName]) {
+    await queryInterface.addColumn(tableName, columnName, definition);
+  }
+}
+
+async function ensurePostgresCompatibility() {
+  if (sequelize.getDialect() !== "postgres") {
+    return;
+  }
+
+  const queryInterface = sequelize.getQueryInterface();
+  const restauranteIdColumn = {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 1
+  };
+
+  await ensureColumn(queryInterface, "usuario", "restaurante_id", restauranteIdColumn);
+  await ensureColumn(queryInterface, "cliente", "restaurante_id", restauranteIdColumn);
+  await ensureColumn(queryInterface, "categoria", "restaurante_id", restauranteIdColumn);
+  await ensureColumn(queryInterface, "producto", "restaurante_id", restauranteIdColumn);
+  await ensureColumn(queryInterface, "pedido", "restaurante_id", restauranteIdColumn);
+  await ensureColumn(queryInterface, "pedido_producto", "restaurante_id", restauranteIdColumn);
+  await ensureColumn(queryInterface, "repartidor", "restaurante_id", restauranteIdColumn);
+  await ensureColumn(queryInterface, "mesa", "restaurante_id", restauranteIdColumn);
+  await ensureColumn(queryInterface, "turno_caja", "restaurante_id", restauranteIdColumn);
+  await ensureColumn(queryInterface, "pago_pedido", "restaurante_id", restauranteIdColumn);
+
+  await ensureColumn(queryInterface, "producto", "precio_salon", {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
+    defaultValue: 0
+  });
+  await ensureColumn(queryInterface, "producto", "precio_mostrador", {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
+    defaultValue: 0
+  });
+  await ensureColumn(queryInterface, "producto", "costo", {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
+    defaultValue: 0
+  });
+  await ensureColumn(queryInterface, "producto", "controla_stock", {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false
+  });
+  await ensureColumn(queryInterface, "producto", "stock_actual", {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 0
+  });
+
+  await ensureColumn(queryInterface, "pedido", "id_mesa", {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  });
+  await ensureColumn(queryInterface, "pedido", "estado_pago", {
+    type: DataTypes.STRING,
+    allowNull: false,
+    defaultValue: "pendiente"
+  });
+
+  await sequelize.query("UPDATE producto SET precio_salon = precio WHERE precio_salon IS NULL OR precio_salon = 0");
+  await sequelize.query("UPDATE producto SET precio_mostrador = precio WHERE precio_mostrador IS NULL OR precio_mostrador = 0");
+}
+
 export async function initializeDatabase({ alter = true } = {}) {
   if (dbState.connecting) {
     return false;
@@ -179,7 +279,9 @@ export async function initializeDatabase({ alter = true } = {}) {
 
   try {
     await sequelize.authenticate();
-    await sequelize.sync({ alter });
+    const safeAlter = shouldUseSafeSync(alter);
+    await sequelize.sync({ alter: safeAlter });
+    await ensurePostgresCompatibility();
     dbState.ready = true;
     dbState.lastError = null;
     dbState.lastConnectedAt = new Date().toISOString();
