@@ -26,6 +26,21 @@ class ClienteRepository extends RepositorioBase {
       }
     });
   }
+
+  async buscarDuplicado({ telefono, email }, restauranteId) {
+    const condiciones = [];
+    if (telefono) condiciones.push({ telefono });
+    if (email) condiciones.push({ email });
+    if (!condiciones.length) return null;
+
+    return this.modelo.findOne({
+      where: {
+        [Op.or]: condiciones,
+        activo: true,
+        restauranteId
+      }
+    });
+  }
 }
 
 export default new ClienteRepository();

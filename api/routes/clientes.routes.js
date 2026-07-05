@@ -37,6 +37,14 @@ router.post("/", async (req, res) => {
   }
 });
 
+router.post("/importar-contactos", async (req, res) => {
+  try {
+    res.status(201).json(await clienteService.importarContactosCsv(req.body.csv, req.usuario.restauranteId));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 router.put("/:id", async (req, res) => {
   try {
     res.json(await clienteService.actualizar(parseInt(req.params.id), req.body, req.usuario.restauranteId));
