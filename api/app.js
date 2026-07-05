@@ -28,12 +28,36 @@ const SHOULD_ALTER_SCHEMA = process.env.DB_SYNC_ALTER
   ? process.env.DB_SYNC_ALTER === "true"
   : true;
 
-app.use(helmet());
-app.use(cors({
-  origin: ["http://localhost:5173", "https://bar-production-84b0.up.railway.app"],
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "https://bar-production-84b0.up.railway.app",
+  process.env.FRONTEND_URL,
+  process.env.CORS_ORIGIN
+].filter(Boolean);
+
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    console.warn(`CORS bloqueado para origin=${origin}`);
+    return callback(new Error(`Origin no permitido por CORS: ${origin}`));
+  },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  credentials: true
-}));
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true,
+  optionsSuccessStatus: 204
+};
+
+app.use(helmet());
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 
 const apiLimiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || 900000),
@@ -59,7 +83,8 @@ app.get("/api/health", async (req, res) => {
     res.json({
       ok: true,
       dialect: sequelize.getDialect(),
-      autoMigrate: SHOULD_ALTER_SCHEMA
+      autoMigrate: SHOULD_ALTER_SCHEMA,
+      allowedOrigins
     });
   } catch (error) {
     res.status(500).json({
@@ -84,6 +109,10 @@ app.use((req, res) => {
 });
 
 app.use((err, req, res, next) => {
+  if (err?.message?.startsWith("Origin no permitido por CORS")) {
+    return res.status(403).json({ error: err.message });
+  }
+
   console.error("Error no controlado:", err);
   res.status(err.statusCode || 500).json({
     error: NODE_ENV === "production" ? "Error interno del servidor" : (err?.message || String(err))
@@ -98,6 +127,7 @@ app.use((err, req, res, next) => {
     console.log(`DB dialect detectado=${sequelize.getDialect()}`);
     console.log(`DATABASE_URL presente=${Boolean(process.env.DATABASE_URL)}`);
     console.log(`PGHOST presente=${Boolean(process.env.PGHOST)}`);
+    console.log(`Allowed origins=${allowedOrigins.join(", ")}`);
 
     await sequelize.authenticate();
     console.log(`BD conectada con dialecto ${sequelize.getDialect()}`);
