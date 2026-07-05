@@ -69,7 +69,26 @@ class PedidoRepository extends RepositorioBase {
 
   async filtrar(filtros, restauranteId) {
     const condiciones = { restauranteId };
-    if (filtros.cliente) condiciones.idCliente = filtros.cliente;
+    const include = this.include(restauranteId);
+    if (filtros.cliente) {
+      const cliente = String(filtros.cliente).trim();
+      if (/^\d+$/.test(cliente)) {
+        condiciones.idCliente = Number(cliente);
+      } else {
+        include[0] = {
+          model: Cliente,
+          as: "cliente",
+          required: true,
+          where: {
+            restauranteId,
+            [Op.or]: [
+              { nombre: { [Op.iLike]: `%${cliente}%` } },
+              { apellido: { [Op.iLike]: `%${cliente}%` } }
+            ]
+          }
+        };
+      }
+    }
     if (filtros.estado) condiciones.estado = filtros.estado;
     if (filtros.tipoEntrega) condiciones.tipoEntrega = filtros.tipoEntrega;
     if (filtros.canal) condiciones.tipoEntrega = filtros.canal;
@@ -88,7 +107,7 @@ class PedidoRepository extends RepositorioBase {
 
     return this.modelo.findAll({
       where: condiciones,
-      include: this.include(restauranteId),
+      include,
       order: [["fecha", "DESC"]]
     });
   }
