@@ -202,9 +202,21 @@ class PedidoService {
   }
 
   async actualizarEstado(id, estado, restauranteId) {
+    const pedido = await pedidoRepository.obtenerPorId(id, restauranteId);
+    if (!pedido) {
+      throw new Error("Pedido no encontrado");
+    }
+
+    if (pedido.estado === "cobrado" && estado === "cancelado") {
+      throw new Error("No se puede cancelar un pedido ya cobrado");
+    }
+
     const actualizado = await pedidoRepository.actualizar(id, { estado }, restauranteId);
     if (estado === "cancelado") {
       await this.#reponerStockDesdePedido(id, restauranteId);
+      if (pedido.idMesa) {
+        await mesaRepository.actualizar(pedido.idMesa, { estado: "libre" }, restauranteId);
+      }
     }
     return this.#convertirSalida(actualizado);
   }
@@ -244,6 +256,18 @@ class PedidoService {
   }
 
   async eliminar(id, restauranteId) {
+    const pedido = await pedidoRepository.obtenerPorId(id, restauranteId);
+    if (!pedido) {
+      throw new Error("Pedido no encontrado");
+    }
+    if (pedido.estado === "cobrado" || pedido.estadoPago === "pagado") {
+      throw new Error("No se puede eliminar un pedido cobrado");
+    }
+
+    await this.#reponerStockDesdePedido(id, restauranteId);
+    if (pedido.idMesa) {
+      await mesaRepository.actualizar(pedido.idMesa, { estado: "libre" }, restauranteId);
+    }
     return pedidoRepository.eliminar(id, restauranteId);
   }
 
