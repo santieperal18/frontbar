@@ -6,6 +6,7 @@ import Repartidor from "../models/repartidor.js";
 import PedidoProducto from "../models/pedidoProducto.js";
 import Producto from "../models/producto.js";
 import Mesa from "../models/mesa.js";
+import { getBusinessDateRangeBetween } from "../utils/dateUtils.js";
 
 class PedidoRepository extends RepositorioBase {
   constructor() {
@@ -97,9 +98,7 @@ class PedidoRepository extends RepositorioBase {
     }
 
     if (filtros.fechaDesde && filtros.fechaHasta) {
-      const desde = new Date(filtros.fechaDesde);
-      const hasta = new Date(filtros.fechaHasta);
-      hasta.setHours(23, 59, 59, 999);
+      const { start: desde, end: hasta } = getBusinessDateRangeBetween(filtros.fechaDesde, filtros.fechaHasta);
       condiciones.fecha = {
         [Op.between]: [desde, hasta]
       };

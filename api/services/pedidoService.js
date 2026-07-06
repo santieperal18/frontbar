@@ -5,6 +5,7 @@ import pedidoRepository from "../repositories/pedidoRepository.js";
 import mesaRepository from "../repositories/mesaRepository.js";
 import sequelize from "../db.js";
 import PedidoProducto from "../models/pedidoProducto.js";
+import { getBusinessDateString } from "../utils/dateUtils.js";
 
 class PedidoService {
   async obtenerTodos({ pagina = 1, limite = 10 } = {}, restauranteId) {
@@ -234,7 +235,7 @@ class PedidoService {
   }
 
   async obtenerComandasCocina(restauranteId) {
-    const fecha = new Date().toISOString().split("T")[0];
+    const fecha = getBusinessDateString();
     const pedidos = await pedidoRepository.filtrar({
       fechaDesde: fecha,
       fechaHasta: fecha,

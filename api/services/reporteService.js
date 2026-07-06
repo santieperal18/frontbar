@@ -3,16 +3,18 @@ import { QueryTypes } from "sequelize";
 import sequelize from "../db.js";
 import pedidoRepository from "../repositories/pedidoRepository.js";
 import clienteRepository from "../repositories/clienteRepository.js";
+import { addBusinessDays, getBusinessDateRange, getBusinessDateString } from "../utils/dateUtils.js";
+
+const BUSINESS_TIMEZONE_OFFSET_MINUTES = Number(process.env.BUSINESS_TIMEZONE_OFFSET_MINUTES || -180);
 
 class ReporteService {
   async obtenerVentasDiarias(fecha, restauranteId) {
-    const fechaBase = fecha ? new Date(`${fecha}T12:00:00`) : new Date();
-    const fechaInicio = new Date(fechaBase.getFullYear(), fechaBase.getMonth(), fechaBase.getDate(), 0, 0, 0);
-    const fechaFin = new Date(fechaBase.getFullYear(), fechaBase.getMonth(), fechaBase.getDate(), 23, 59, 59, 999);
+    const fechaDia = fecha || getBusinessDateString();
+    const { start: fechaInicio, end: fechaFin } = getBusinessDateRange(fechaDia);
     const pedidos = await pedidoRepository.obtenerPorFecha(fechaInicio, fechaFin, restauranteId);
     const totalVentas = pedidos.reduce((acc, pedido) => acc + Number(pedido.total || 0), 0);
     return {
-      titulo: `Reporte Diario (${fechaInicio.toLocaleDateString()})`,
+      titulo: `Reporte Diario (${fechaDia})`,
       totalVentas,
       cantidadPedidos: pedidos.length,
       fecha: fechaInicio,
@@ -21,19 +23,22 @@ class ReporteService {
   }
 
   async obtenerVentasSemanales(fechaInicio, restauranteId) {
-    const inicio = fechaInicio ? new Date(fechaInicio) : new Date();
-    inicio.setHours(0, 0, 0, 0);
-    const fin = new Date(inicio);
-    fin.setDate(fin.getDate() + 7);
-    fin.setHours(23, 59, 59, 999);
+    const fechaDesde = fechaInicio || getBusinessDateString();
+    const fechaHasta = addBusinessDays(fechaDesde, 6);
+    const { start: inicio } = getBusinessDateRange(fechaDesde);
+    const { end: fin } = getBusinessDateRange(fechaHasta);
     return this.#procesarReporte(await pedidoRepository.obtenerPorFecha(inicio, fin, restauranteId), `Reporte Semanal (${inicio.toLocaleDateString()} - ${fin.toLocaleDateString()})`);
   }
 
   async obtenerVentasMensuales(anio, mes, restauranteId) {
-    const year = Number(anio || new Date().getFullYear());
-    const month = Number(mes || (new Date().getMonth() + 1));
-    const inicio = new Date(year, month - 1, 1);
-    const fin = new Date(year, month, 0, 23, 59, 59, 999);
+    const [businessYear, businessMonth] = getBusinessDateString().split("-").map(Number);
+    const year = Number(anio || businessYear);
+    const month = Number(mes || businessMonth);
+    const fechaDesde = `${year}-${String(month).padStart(2, "0")}-01`;
+    const ultimoDia = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    const fechaHasta = `${year}-${String(month).padStart(2, "0")}-${String(ultimoDia).padStart(2, "0")}`;
+    const { start: inicio } = getBusinessDateRange(fechaDesde);
+    const { end: fin } = getBusinessDateRange(fechaHasta);
     return this.#procesarReporte(await pedidoRepository.obtenerPorFecha(inicio, fin, restauranteId), `Reporte Mensual (${month}/${year})`);
   }
 
@@ -45,6 +50,10 @@ class ReporteService {
 
   async obtenerProductosMasVendidos(fechaInicio, fechaFin, limite, restauranteId) {
     const limitNum = Number(limite || 5);
+    const rango = fechaInicio && fechaFin ? {
+      fechaInicio: getBusinessDateRange(fechaInicio).start,
+      fechaFin: getBusinessDateRange(fechaFin).end
+    } : {};
     return sequelize.query(
       `SELECT p.nombre, SUM(pp.cantidad) as total_vendido, SUM(pp.subtotal) as total_ingresos
        FROM pedido_producto pp
@@ -60,8 +69,7 @@ class ReporteService {
         replacements: {
           restauranteId,
           limitNum,
-          fechaInicio: `${fechaInicio} 00:00:00`,
-          fechaFin: `${fechaFin} 23:59:59`
+          ...rango
         },
         type: QueryTypes.SELECT
       }
@@ -70,6 +78,10 @@ class ReporteService {
 
   async obtenerProductosMenosVendidos(fechaInicio, fechaFin, limite, restauranteId) {
     const limitNum = Number(limite || 5);
+    const rango = fechaInicio && fechaFin ? {
+      fechaInicio: getBusinessDateRange(fechaInicio).start,
+      fechaFin: getBusinessDateRange(fechaFin).end
+    } : {};
     return sequelize.query(
       `SELECT p.nombre, COALESCE(SUM(pp.cantidad), 0) as total_vendido
        FROM producto p
@@ -86,8 +98,7 @@ class ReporteService {
         replacements: {
           restauranteId,
           limitNum,
-          fechaInicio: `${fechaInicio} 00:00:00`,
-          fechaFin: `${fechaFin} 23:59:59`
+          ...rango
         },
         type: QueryTypes.SELECT
       }
@@ -112,9 +123,7 @@ class ReporteService {
   }
 
   async obtenerDesempenoRepartidores(fecha, restauranteId) {
-    const targetDate = fecha ? new Date(fecha) : new Date();
-    const fechaInicio = `${targetDate.toISOString().split("T")[0]} 00:00:00`;
-    const fechaFin = `${targetDate.toISOString().split("T")[0]} 23:59:59`;
+    const { start: fechaInicio, end: fechaFin } = getBusinessDateRange(fecha || getBusinessDateString());
     return sequelize.query(
       `SELECT r.nombre, r.apellido, COUNT(p.id) as cantidad_entregas
        FROM repartidor r
@@ -132,6 +141,10 @@ class ReporteService {
   }
 
   async obtenerCategoriasClave(fechaInicio, fechaFin, restauranteId) {
+    const rango = fechaInicio && fechaFin ? {
+      fechaInicio: getBusinessDateRange(fechaInicio).start,
+      fechaFin: getBusinessDateRange(fechaFin).end
+    } : {};
     const categorias = await sequelize.query(
       `SELECT c.nombre,
               SUM(pp.cantidad) as unidades,
@@ -149,8 +162,7 @@ class ReporteService {
       {
         replacements: {
           restauranteId,
-          fechaInicio: `${fechaInicio} 00:00:00`,
-          fechaFin: `${fechaFin} 23:59:59`
+          ...rango
         },
         type: QueryTypes.SELECT
       }
@@ -162,22 +174,24 @@ class ReporteService {
   }
 
   async obtenerVentasPorHora(fecha, restauranteId) {
-    const targetDate = fecha || new Date().toISOString().split("T")[0];
+    const targetDate = fecha || getBusinessDateString();
+    const { start: fechaInicio, end: fechaFin } = getBusinessDateRange(targetDate);
     return sequelize.query(
-      `SELECT LPAD(CAST(EXTRACT(HOUR FROM fecha) AS TEXT), 2, '0') as hora,
+      `SELECT TO_CHAR(fecha + (:offsetMinutes * INTERVAL '1 minute'), 'HH24') as hora,
               COUNT(*) as pedidos,
               SUM(total) as total
        FROM pedido
        WHERE restaurante_id = :restauranteId
        AND estado != 'cancelado'
        AND fecha BETWEEN :fechaInicio AND :fechaFin
-       GROUP BY EXTRACT(HOUR FROM fecha)
-       ORDER BY EXTRACT(HOUR FROM fecha) ASC`,
+       GROUP BY TO_CHAR(fecha + (:offsetMinutes * INTERVAL '1 minute'), 'HH24')
+       ORDER BY TO_CHAR(fecha + (:offsetMinutes * INTERVAL '1 minute'), 'HH24') ASC`,
       {
         replacements: {
           restauranteId,
-          fechaInicio: `${targetDate} 00:00:00`,
-          fechaFin: `${targetDate} 23:59:59`
+          fechaInicio,
+          fechaFin,
+          offsetMinutes: BUSINESS_TIMEZONE_OFFSET_MINUTES
         },
         type: QueryTypes.SELECT
       }
@@ -185,11 +199,8 @@ class ReporteService {
   }
 
   async obtenerDashboardSupervivencia(restauranteId) {
-    const hoy = new Date();
-    const ayer = new Date(hoy);
-    ayer.setDate(ayer.getDate() - 1);
-    const fechaHoy = hoy.toISOString().split("T")[0];
-    const fechaAyer = ayer.toISOString().split("T")[0];
+    const fechaHoy = getBusinessDateString();
+    const fechaAyer = addBusinessDays(fechaHoy, -1);
 
     const [ventasHoy, ventasAyer, topProductos, productosLentos, categorias, ventasPorHora] = await Promise.all([
       this.obtenerVentasDiarias(fechaHoy, restauranteId),
