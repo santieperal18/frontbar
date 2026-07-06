@@ -224,6 +224,10 @@ async function ensurePostgresCompatibility() {
   await ensureColumn(queryInterface, "producto", "restaurante_id", restauranteIdColumn);
   await ensureColumn(queryInterface, "pedido", "restaurante_id", restauranteIdColumn);
   await ensureColumn(queryInterface, "pedido_producto", "restaurante_id", restauranteIdColumn);
+  await ensureColumn(queryInterface, "pedido_producto", "guarnicion", {
+    type: DataTypes.TEXT,
+    allowNull: true
+  });
   await ensureColumn(queryInterface, "repartidor", "restaurante_id", restauranteIdColumn);
   await ensureColumn(queryInterface, "mesa", "restaurante_id", restauranteIdColumn);
   await ensureColumn(queryInterface, "turno_caja", "restaurante_id", restauranteIdColumn);

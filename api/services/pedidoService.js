@@ -7,6 +7,8 @@ import sequelize from "../db.js";
 import PedidoProducto from "../models/pedidoProducto.js";
 import { getBusinessDateString } from "../utils/dateUtils.js";
 
+const GUARNICIONES_VALIDAS = ["arroz", "pure", "ensalada", "fritas", "fideos"];
+
 class PedidoService {
   async obtenerTodos({ pagina = 1, limite = 10 } = {}, restauranteId) {
     const pedidos = await pedidoRepository.obtenerTodos({ pagina, limite }, restauranteId);
@@ -78,7 +80,8 @@ class PedidoService {
       productosValidos.push({
         id: producto.id,
         cantidad: cantidadSolicitada,
-        precio: precioSeleccionado
+        precio: precioSeleccionado,
+        guarnicion: this.#normalizarGuarnicion(productoPedido.guarnicion, producto.nombre)
       });
     }
 
@@ -153,7 +156,8 @@ class PedidoService {
       productosValidos.push({
         id: producto.id,
         cantidad: cantidadSolicitada,
-        precio: precioSeleccionado
+        precio: precioSeleccionado,
+        guarnicion: this.#normalizarGuarnicion(productoPedido.guarnicion, producto.nombre)
       });
     }
 
@@ -178,6 +182,7 @@ class PedidoService {
           cantidad: producto.cantidad,
           precioUnitario: producto.precio,
           subtotal: producto.precio * producto.cantidad,
+          guarnicion: producto.guarnicion || null,
           restauranteId
         })),
         { transaction }
@@ -277,6 +282,26 @@ class PedidoService {
     if (tipoEntrega === "delivery") return "delivery";
     if (tipoEntrega === "local") return "mostrador";
     return tipoEntrega || "mostrador";
+  }
+
+  #requiereGuarnicion(nombreProducto) {
+    return /c\s*\/\s*(n\s*)?guarnici[oó]n/i.test(String(nombreProducto || ""));
+  }
+
+  #normalizarGuarnicion(valor, nombreProducto) {
+    if (!this.#requiereGuarnicion(nombreProducto)) return null;
+
+    const guarnicion = String(valor || "")
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+    if (!GUARNICIONES_VALIDAS.includes(guarnicion)) {
+      throw new Error(`Debe seleccionar guarnicion para ${nombreProducto}`);
+    }
+
+    return guarnicion;
   }
 
   async #actualizarStock(productosPedido, restauranteId, modo) {

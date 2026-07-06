@@ -67,7 +67,24 @@ class ClienteService {
 
   #convertirEntrada(datos) {
     const { confirmarEmail, confirmarTelefono, ...resto } = datos;
-    return resto;
+    return {
+      ...resto,
+      nombre: this.#capitalizarSiEstaEnMinuscula(resto.nombre),
+      apellido: this.#capitalizarSiEstaEnMinuscula(resto.apellido),
+      email: this.#limpiarEmail(resto.email) || null
+    };
+  }
+
+  #capitalizarSiEstaEnMinuscula(valor) {
+    return String(valor || "")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((palabra) => {
+        if (/[A-ZÁÉÍÓÚÑ]/.test(palabra)) return palabra;
+        return palabra.charAt(0).toUpperCase() + palabra.slice(1);
+      })
+      .join(" ");
   }
 
   #parseCsv(csv) {
@@ -146,8 +163,8 @@ class ClienteService {
     const direccion = this.#valor(headers, fila, ["address 1 - formatted", "direccion", "address", "home address"]);
 
     return {
-      nombre: nombre || nombreCompleto || "Sin nombre",
-      apellido: apellido || "-",
+      nombre: this.#capitalizarSiEstaEnMinuscula(nombre || nombreCompleto || "Sin nombre"),
+      apellido: this.#capitalizarSiEstaEnMinuscula(apellido || "-"),
       telefono: telefono || null,
       email: email || null,
       direccion: direccion || null,

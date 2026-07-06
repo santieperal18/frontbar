@@ -40,6 +40,11 @@ PedidoProducto.init(
       allowNull: false,
       field: "subtotal"
     },
+    guarnicion: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      field: "guarnicion"
+    },
     restauranteId: {
       type: DataTypes.INTEGER,
       allowNull: false,

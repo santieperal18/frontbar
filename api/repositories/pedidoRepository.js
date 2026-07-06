@@ -23,7 +23,7 @@ class PedidoRepository extends RepositorioBase {
         as: "productos",
         required: false,
         where: { restauranteId },
-        through: { attributes: ["cantidad", "precioUnitario", "subtotal"] }
+        through: { attributes: ["cantidad", "precioUnitario", "subtotal", "guarnicion"] }
       }
     ];
   }
@@ -127,6 +127,7 @@ class PedidoRepository extends RepositorioBase {
           cantidad: producto.cantidad,
           precioUnitario: producto.precio,
           subtotal,
+          guarnicion: producto.guarnicion || null,
           restauranteId
         });
       }
