@@ -17,7 +17,7 @@ router.post("/login", [body("usuario").trim().isLength({ min: 3, max: 254 }), bo
 });
 
 router.post("/refresh", async (req, res) => { try { const resultado = await usuarioService.refreshToken(req.cookies.refreshToken || req.body.refreshToken, contexto(req)); res.json(resultado); } catch (err) { res.status(401).json({ error: err.message }); } });
-router.post("/logout", verificarToken, async (req, res) => { await usuarioService.cerrarSesion(req.usuario.sid, req.usuario, contexto(req)); res.clearCookie("refreshToken", { path: "/api/auth" }); res.json({ mensaje: "Sesión cerrada correctamente" }); });
+router.post("/logout", async (req, res) => { res.clearCookie("refreshToken", { path: "/api/auth" }); res.json({ mensaje: "Sesión cerrada correctamente" }); });
 router.post("/recuperar-contrasena", [body("email").isEmail()], async (req, res) => { try { if (!validar(req, res)) return; res.json(await usuarioService.solicitarRecuperacion(req.body.email, contexto(req))); } catch (err) { res.status(400).json({ error: err.message }); } });
 router.post("/restablecer-contrasena", [body("token").isString(), body("contrasena").isLength({ min: 12, max: 100 })], async (req, res) => { try { if (!validar(req, res)) return; res.json(await usuarioService.restablecerContrasena(req.body.token, req.body.contrasena, contexto(req))); } catch (err) { res.status(400).json({ error: err.message }); } });
 router.post("/verificar-email", [body("token").isString()], async (req, res) => { try { if (!validar(req, res)) return; res.json(await usuarioService.verificarEmail(req.body.token)); } catch (err) { res.status(400).json({ error: err.message }); } });

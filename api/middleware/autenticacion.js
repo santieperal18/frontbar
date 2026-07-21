@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import { JWT_SECRET } from "../services/usuarioService.js";
 import usuarioRepository from "../repositories/usuarioRepository.js";
 import { SesionUsuario } from "../models/seguridad.js";
+import autorizacionService from "../services/autorizacionService.js";
 
 export const verificarToken = async (req, res, next) => {
   const encabezado = req.headers.authorization;
@@ -14,7 +15,8 @@ export const verificarToken = async (req, res, next) => {
     const usuario = await usuarioRepository.obtenerPorId(decoded.id);
     if (!usuario?.activo) return res.status(401).json({ error: "Usuario no disponible" });
     await sesion.update({ ultimoAccesoEn: new Date() });
-    req.usuario = decoded;
+    const acceso = await autorizacionService.obtenerContexto(usuario);
+    req.usuario = { ...decoded, roles: acceso.roles, permisos: acceso.permisos };
     req.usuarioModelo = usuario;
     return next();
   } catch (error) { return res.status(401).json({ error: error.name === "TokenExpiredError" ? "Token expirado" : "Token inválido" }); }

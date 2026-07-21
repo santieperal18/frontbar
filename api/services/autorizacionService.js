@@ -36,8 +36,11 @@ class AutorizacionService {
   }
 
   async obtenerContexto(usuario) {
-    await this.asegurarCatalogo(usuario.restauranteId);
-    const roles = await usuario.getRolesAsignados({ include: [{ model: Permiso, as: "permisos", through: { attributes: [] } }] });
+    let roles = await usuario.getRolesAsignados({ include: [{ model: Permiso, as: "permisos", through: { attributes: [] } }] });
+    if (!roles.length) {
+      await this.asegurarCatalogo(usuario.restauranteId);
+      roles = await usuario.getRolesAsignados({ include: [{ model: Permiso, as: "permisos", through: { attributes: [] } }] });
+    }
     const clavesRoles = roles.length ? roles.map((rol) => rol.clave) : [usuario.roles || "owner"];
     const permisos = [...new Set(roles.flatMap((rol) => rol.permisos.map((permiso) => permiso.clave)))];
     if (clavesRoles.some((rol) => ["owner", "administrador"].includes(rol))) permisos.push("*");
