@@ -124,10 +124,11 @@ class UsuarioService {
   }
 
   async enviarToken(tipo, usuario, restauranteId, datos = null) {
-    const token = tokenAleatorio(); await TokenAcceso.create({ usuarioId: usuario?.id || null, restauranteId, tipo, tokenHash: hash(token), datos: datos ? JSON.stringify(datos) : null, expiraEn: fechaExpiracion(tipo === "invitacion" ? 72 : 2) });
+    const token = tokenAleatorio();
     const ruta = tipo === "verificacion_email" ? "/verificar-email" : tipo === "recuperacion_contrasena" ? "/restablecer-contrasena" : "/aceptar-invitacion";
     const enlace = emailService.enlace(ruta, token);
     await emailService.enviar({ para: tipo === "invitacion" ? datos.email : usuario.email, asunto: "Acceso a Frontbar", texto: `Usá este enlace para continuar: ${enlace}` });
+    await TokenAcceso.create({ usuarioId: usuario?.id || null, restauranteId, tipo, tokenHash: hash(token), datos: datos ? JSON.stringify(datos) : null, expiraEn: fechaExpiracion(tipo === "invitacion" ? 72 : 2) });
     return token;
   }
 
