@@ -88,11 +88,11 @@ app.get("/api/health", async (req, res) => {
 app.use("/api/auth", ensureDatabaseReady, authRouter);
 app.use("/api/usuarios", ensureDatabaseReady, verificarToken, usuariosRouter);
 app.use("/api/onboarding", ensureDatabaseReady, verificarToken, onboardingRouter);
-app.use("/api/clientes", ensureDatabaseReady, verificarToken, verificarPermiso("clientes.gestionar"), clientesRouter);
-app.use("/api/productos", ensureDatabaseReady, verificarToken, verificarPermiso("productos.editar"), productosRouter);
+app.use("/api/clientes", ensureDatabaseReady, verificarToken, clientesRouter);
+app.use("/api/productos", ensureDatabaseReady, verificarToken, productosRouter);
 app.use("/api/pedidos", ensureDatabaseReady, verificarToken, verificarPermiso("pedidos.crear", "pedidos.editar"), pedidosRouter);
-app.use("/api/repartidores", ensureDatabaseReady, verificarToken, verificarPermiso("repartos.ver"), repartidoresRouter);
-app.use("/api/categorias", ensureDatabaseReady, verificarToken, verificarPermiso("productos.editar"), categoriasRouter);
+app.use("/api/repartidores", ensureDatabaseReady, verificarToken, repartidoresRouter);
+app.use("/api/categorias", ensureDatabaseReady, verificarToken, categoriasRouter);
 app.use("/api/reportes", ensureDatabaseReady, verificarToken, verificarPermiso("reportes.ver", "ventas.ver"), reportesRouter);
 app.use("/api/operaciones", ensureDatabaseReady, verificarToken, operacionesRouter);
 

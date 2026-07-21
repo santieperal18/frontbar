@@ -1,9 +1,10 @@
 import express from "express";
 import productoService from "../services/productoService.js";
+import { verificarPermiso } from "../middleware/autenticacion.js";
 
 const router = express.Router();
 
-router.get("/", async (req, res) => {
+router.get("/", verificarPermiso("pedidos.crear", "productos.editar"), async (req, res) => {
   try {
     res.json(await productoService.obtenerTodos(req.usuario.restauranteId, req.query.incluirOcultos === "true"));
   } catch (err) {
@@ -11,7 +12,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-router.get("/categoria/:idCategoria", async (req, res) => {
+router.get("/categoria/:idCategoria", verificarPermiso("pedidos.crear", "productos.editar"), async (req, res) => {
   try {
     res.json(await productoService.obtenerPorCategoria(parseInt(req.params.idCategoria), req.usuario.restauranteId));
   } catch (err) {
@@ -19,7 +20,7 @@ router.get("/categoria/:idCategoria", async (req, res) => {
   }
 });
 
-router.get("/tipo/:tipo", async (req, res) => {
+router.get("/tipo/:tipo", verificarPermiso("pedidos.crear", "productos.editar"), async (req, res) => {
   try {
     res.json(await productoService.obtenerPorTipo(req.params.tipo, req.usuario.restauranteId));
   } catch (err) {
@@ -27,7 +28,7 @@ router.get("/tipo/:tipo", async (req, res) => {
   }
 });
 
-router.get("/:id", async (req, res) => {
+router.get("/:id", verificarPermiso("pedidos.crear", "productos.editar"), async (req, res) => {
   try {
     const producto = await productoService.obtenerPorId(parseInt(req.params.id), req.usuario.restauranteId);
     if (!producto) return res.status(404).json({ error: "Producto no encontrado" });
@@ -37,7 +38,7 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-router.post("/", async (req, res) => {
+router.post("/", verificarPermiso("productos.editar"), async (req, res) => {
   try {
     res.status(201).json(await productoService.crear(req.body, req.usuario.restauranteId));
   } catch (err) {
@@ -45,7 +46,7 @@ router.post("/", async (req, res) => {
   }
 });
 
-router.put("/:id", async (req, res) => {
+router.put("/:id", verificarPermiso("productos.editar"), async (req, res) => {
   try {
     res.json(await productoService.actualizar(parseInt(req.params.id), req.body, req.usuario.restauranteId));
   } catch (err) {
@@ -53,7 +54,7 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", verificarPermiso("productos.editar"), async (req, res) => {
   try {
     await productoService.eliminar(parseInt(req.params.id), req.usuario.restauranteId);
     res.status(204).end();
