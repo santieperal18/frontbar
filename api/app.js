@@ -6,6 +6,7 @@ import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import sequelize, { dbState, ensureDatabaseReady, initializeDatabase, startDatabaseRetryLoop } from "./db.js";
 import authRouter from "./routes/auth.routes.js";
+import usuariosRouter from "./routes/usuarios.routes.js";
 import clientesRouter from "./routes/clientes.routes.js";
 import productosRouter from "./routes/productos.routes.js";
 import pedidosRouter from "./routes/pedidos.routes.js";
@@ -13,7 +14,7 @@ import repartidoresRouter from "./routes/repartidores.routes.js";
 import categoriasRouter from "./routes/categorias.routes.js";
 import reportesRouter from "./routes/reportes.routes.js";
 import operacionesRouter from "./routes/operaciones.routes.js";
-import { verificarToken, registrarAcceso } from "./middleware/autenticacion.js";
+import { verificarToken, verificarPermiso, registrarAcceso } from "./middleware/autenticacion.js";
 import usuarioService from "./services/usuarioService.js";
 import mesaService from "./services/mesaService.js";
 import categoriaService from "./services/categoriaService.js";
@@ -84,12 +85,13 @@ app.get("/api/health", async (req, res) => {
 });
 
 app.use("/api/auth", ensureDatabaseReady, authRouter);
-app.use("/api/clientes", ensureDatabaseReady, verificarToken, clientesRouter);
-app.use("/api/productos", ensureDatabaseReady, verificarToken, productosRouter);
-app.use("/api/pedidos", ensureDatabaseReady, verificarToken, pedidosRouter);
-app.use("/api/repartidores", ensureDatabaseReady, verificarToken, repartidoresRouter);
-app.use("/api/categorias", ensureDatabaseReady, verificarToken, categoriasRouter);
-app.use("/api/reportes", ensureDatabaseReady, verificarToken, reportesRouter);
+app.use("/api/usuarios", ensureDatabaseReady, verificarToken, usuariosRouter);
+app.use("/api/clientes", ensureDatabaseReady, verificarToken, verificarPermiso("clientes.gestionar"), clientesRouter);
+app.use("/api/productos", ensureDatabaseReady, verificarToken, verificarPermiso("productos.editar"), productosRouter);
+app.use("/api/pedidos", ensureDatabaseReady, verificarToken, verificarPermiso("pedidos.crear", "pedidos.editar"), pedidosRouter);
+app.use("/api/repartidores", ensureDatabaseReady, verificarToken, verificarPermiso("repartos.ver"), repartidoresRouter);
+app.use("/api/categorias", ensureDatabaseReady, verificarToken, verificarPermiso("productos.editar"), categoriasRouter);
+app.use("/api/reportes", ensureDatabaseReady, verificarToken, verificarPermiso("reportes.ver", "ventas.ver"), reportesRouter);
 app.use("/api/operaciones", ensureDatabaseReady, verificarToken, operacionesRouter);
 
 app.use((req, res) => {

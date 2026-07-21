@@ -11,6 +11,10 @@ class UsuarioRepository extends RepositorioBase {
       where: { usuario }
     });
   }
+
+  async obtenerPorEmail(email) {
+    return this.modelo.findOne({ where: { email: String(email).trim().toLowerCase() } });
+  }
 }
 
 export default new UsuarioRepository();

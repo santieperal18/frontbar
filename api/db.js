@@ -219,6 +219,15 @@ async function ensurePostgresCompatibility() {
   };
 
   await ensureColumn(queryInterface, "usuario", "restaurante_id", restauranteIdColumn);
+  await ensureColumn(queryInterface, "usuario", "email", { type: DataTypes.STRING(254), allowNull: true });
+  await ensureColumn(queryInterface, "usuario", "nombre", { type: DataTypes.STRING(120), allowNull: true });
+  await ensureColumn(queryInterface, "usuario", "activo", { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true });
+  await ensureColumn(queryInterface, "usuario", "email_verificado_en", { type: DataTypes.DATE, allowNull: true });
+  await ensureColumn(queryInterface, "usuario", "intentos_fallidos", { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 });
+  await ensureColumn(queryInterface, "usuario", "bloqueado_hasta", { type: DataTypes.DATE, allowNull: true });
+  await ensureColumn(queryInterface, "usuario", "mfa_secreto", { type: DataTypes.STRING(128), allowNull: true });
+  await ensureColumn(queryInterface, "usuario", "mfa_habilitado", { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false });
+  await ensureColumn(queryInterface, "usuario", "contrasena_cambiada_en", { type: DataTypes.DATE, allowNull: true });
   await ensureColumn(queryInterface, "cliente", "restaurante_id", restauranteIdColumn);
   await ensureColumn(queryInterface, "categoria", "restaurante_id", restauranteIdColumn);
   await ensureColumn(queryInterface, "producto", "restaurante_id", restauranteIdColumn);
@@ -271,6 +280,17 @@ async function ensurePostgresCompatibility() {
 
   await sequelize.query("UPDATE producto SET precio_salon = precio WHERE precio_salon IS NULL OR precio_salon = 0");
   await sequelize.query("UPDATE producto SET precio_mostrador = precio WHERE precio_mostrador IS NULL OR precio_mostrador = 0");
+
+  // En producción el sync con alter está desactivado: estas tablas nuevas se crean
+  // de forma idempotente para que la fase de seguridad pueda desplegarse sin resetear datos.
+  const tablasSeguridad = ["rol", "permiso", "rol_permiso", "usuario_rol", "sesion_usuario", "token_acceso", "historial_acceso"];
+  for (const tabla of tablasSeguridad) {
+    if (await tableExists(queryInterface, tabla)) continue;
+    const modelo = Object.values(sequelize.models).find((candidato) => candidato.getTableName() === tabla);
+    if (modelo) await queryInterface.createTable(tabla, modelo.getAttributes());
+  }
+  await queryInterface.addIndex("usuario", ["email"], { unique: true, name: "usuario_email_unico" }).catch(() => {});
+  await queryInterface.addIndex("rol", ["restaurante_id", "clave"], { unique: true, name: "rol_restaurante_clave_unico" }).catch(() => {});
 }
 
 export async function initializeDatabase({ alter = true } = {}) {
