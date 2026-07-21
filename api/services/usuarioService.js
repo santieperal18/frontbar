@@ -67,7 +67,7 @@ class UsuarioService {
   }
 
   serializarUsuario(usuario, contextoRol = null) {
-    return { id: usuario.id, usuario: usuario.usuario, email: usuario.email, nombre: usuario.nombre, restauranteId: usuario.restauranteId, roles: contextoRol?.roles || [], permisos: contextoRol?.permisos || [], emailVerificado: Boolean(usuario.emailVerificadoEn), mfaHabilitado: usuario.mfaHabilitado };
+    return { id: usuario.id, usuario: usuario.usuario, email: usuario.email, nombre: usuario.nombre, activo: usuario.activo, restauranteId: usuario.restauranteId, roles: contextoRol?.roles || [], permisos: contextoRol?.permisos || [], emailVerificado: Boolean(usuario.emailVerificadoEn), mfaHabilitado: usuario.mfaHabilitado };
   }
 
   async login(identificador, contrasena, codigoMfa, contexto) {
@@ -138,6 +138,25 @@ class UsuarioService {
   async restablecerContrasena(token, contrasena, contexto) { const registro = await this.usarToken(token, "recuperacion_contrasena"); const usuario = await usuarioRepository.obtenerPorId(registro.usuarioId); validarContrasena(contrasena, usuario.usuario); await usuario.update({ contrasena: await bcryptjs.hash(contrasena, SALT_ROUNDS), contrasenaCambiadaEn: new Date(), intentosFallidos: 0, bloqueadoHasta: null }); await SesionUsuario.update({ revocadaEn: new Date() }, { where: { usuarioId: usuario.id, revocadaEn: null } }); await registro.update({ usadoEn: new Date() }); await this.auditar("contrasena_restablecida", usuario, contexto); return { mensaje: "Contraseña actualizada. Iniciá sesión nuevamente." }; }
 
   async invitar(usuarioActual, datos, contexto) { const email = normalizarEmail(datos.email); const username = normalizarUsuario(datos.usuario || email.split("@")[0]); if (!/^\S+@\S+\.\S+$/.test(email)) throw new Error("Email inválido"); if (await usuarioRepository.obtenerPorUsuario(username) || await usuarioRepository.obtenerPorEmail(email)) throw new Error("El usuario o email ya existen"); await autorizacionService.asegurarCatalogo(usuarioActual.restauranteId); const token = await this.enviarToken("invitacion", null, usuarioActual.restauranteId, { email, usuario: username, nombre: datos.nombre || null, rol: datos.rol || "mozo" }); await this.auditar("invitacion_enviada", usuarioActual, contexto, email); return { mensaje: "Invitación enviada", tokenDesarrollo: process.env.NODE_ENV === "production" ? undefined : token }; }
+  async crearUsuario(usuarioActual, datos, contexto) {
+    const usuario = normalizarUsuario(datos.usuario);
+    const email = datos.email ? normalizarEmail(datos.email) : null;
+    const rol = String(datos.rol || "mozo").trim().toLowerCase();
+    if (!/^[a-z0-9._-]{3,50}$/.test(usuario)) throw new Error("El usuario debe tener entre 3 y 50 caracteres y usar letras, números, puntos, guiones o guiones bajos");
+    if (email && !/^\S+@\S+\.\S+$/.test(email)) throw new Error("Email inválido");
+    validarContrasena(datos.contrasena, usuario);
+    if (await usuarioRepository.obtenerPorUsuario(usuario) || (email && await usuarioRepository.obtenerPorEmail(email))) throw new Error("El usuario o email ya existen");
+    await autorizacionService.asegurarCatalogo(usuarioActual.restauranteId);
+    const creado = await usuarioRepository.crear({ usuario, email, nombre: String(datos.nombre || "").trim() || null, contrasena: await bcryptjs.hash(datos.contrasena, SALT_ROUNDS), roles: rol, restauranteId: usuarioActual.restauranteId, emailVerificadoEn: email ? new Date() : null, contrasenaCambiadaEn: new Date() });
+    try {
+      await autorizacionService.asignarRol(creado.id, usuarioActual.restauranteId, rol);
+    } catch (error) {
+      await creado.destroy();
+      throw error;
+    }
+    await this.auditar("usuario_creado", usuarioActual, contexto, creado.usuario);
+    return this.serializarUsuario(creado, await autorizacionService.obtenerContexto(creado));
+  }
   async aceptarInvitacion(token, contrasena, contexto) { const registro = await this.usarToken(token, "invitacion"); const datos = JSON.parse(registro.datos); validarContrasena(contrasena, datos.usuario); const usuario = await usuarioRepository.crear({ usuario: datos.usuario, email: datos.email, nombre: datos.nombre, contrasena: await bcryptjs.hash(contrasena, SALT_ROUNDS), roles: datos.rol, restauranteId: registro.restauranteId, emailVerificadoEn: new Date(), contrasenaCambiadaEn: new Date() }); await autorizacionService.asignarRol(usuario.id, usuario.restauranteId, datos.rol); await registro.update({ usadoEn: new Date() }); await this.auditar("invitacion_aceptada", usuario, contexto); return { mensaje: "Cuenta activada. Ya podés iniciar sesión." }; }
 
   async configurarMfa(usuario, codigo) { if (!usuario.mfaSecreto) { const alfabeto = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"; const secreto = Array.from(crypto.randomBytes(32), (byte) => alfabeto[byte % alfabeto.length]).join(""); await usuario.update({ mfaSecreto: secreto }); return { secreto, otpauth: `otpauth://totp/Frontbar:${encodeURIComponent(usuario.email || usuario.usuario)}?secret=${secreto}&issuer=Frontbar` }; } if (!totpValido(usuario.mfaSecreto, codigo)) throw new Error("Código de autenticación inválido"); await usuario.update({ mfaHabilitado: true }); return { mensaje: "Autenticación multifactor activada" }; }

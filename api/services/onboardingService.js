@@ -6,6 +6,8 @@ import productoService from "./productoService.js";
 import clienteService from "./clienteService.js";
 import productoRepository from "../repositories/productoRepository.js";
 import usuarioRepository from "../repositories/usuarioRepository.js";
+import Pedido from "../models/pedido.js";
+import { Op } from "sequelize";
 
 const CAMPOS_RESTAURANTE = ["nombre", "moneda", "pais", "zonaHoraria", "porcentajeImpuesto", "razonSocial", "identificacionFiscal", "direccion", "telefono", "emailComercial", "logoUrl"];
 const TIPOS_CATEGORIA = new Set(["desayuno", "comida", "bebida"]);
@@ -43,6 +45,15 @@ class OnboardingService {
     if (!Number.isInteger(numero) || numero < 0 || numero > 250) throw new Error("La cantidad de mesas debe estar entre 0 y 250");
     const actuales = await mesaRepository.obtenerTodas(restauranteId);
     const existentes = new Set(actuales.map((mesa) => mesa.numero));
+    const sobrantes = actuales.filter((mesa) => mesa.numero > numero);
+    if (sobrantes.length) {
+      const ocupadas = sobrantes.filter((mesa) => mesa.estado !== "libre");
+      if (ocupadas.length) throw new Error(`No se pueden quitar las mesas ocupadas: ${ocupadas.map((mesa) => mesa.numero).join(", ")}`);
+      const ids = sobrantes.map((mesa) => mesa.id);
+      const pedidosAsociados = await Pedido.count({ where: { restauranteId, idMesa: { [Op.in]: ids } } });
+      if (pedidosAsociados) throw new Error("No se pueden quitar mesas que tienen pedidos registrados. Conservá esas mesas o eliminá los pedidos de prueba.");
+      for (const mesa of sobrantes) await mesaRepository.eliminar(mesa.id, restauranteId);
+    }
     const nuevas = [];
     for (let i = 1; i <= numero; i += 1) if (!existentes.has(i)) nuevas.push({ numero: i, estado: "libre" });
     for (const mesa of nuevas) await mesaRepository.crear(mesa, restauranteId);
