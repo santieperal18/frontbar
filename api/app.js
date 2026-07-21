@@ -7,6 +7,7 @@ import dotenv from "dotenv";
 import sequelize, { dbState, ensureDatabaseReady, initializeDatabase, startDatabaseRetryLoop } from "./db.js";
 import authRouter from "./routes/auth.routes.js";
 import usuariosRouter from "./routes/usuarios.routes.js";
+import onboardingRouter from "./routes/onboarding.routes.js";
 import clientesRouter from "./routes/clientes.routes.js";
 import productosRouter from "./routes/productos.routes.js";
 import pedidosRouter from "./routes/pedidos.routes.js";
@@ -86,6 +87,7 @@ app.get("/api/health", async (req, res) => {
 
 app.use("/api/auth", ensureDatabaseReady, authRouter);
 app.use("/api/usuarios", ensureDatabaseReady, verificarToken, usuariosRouter);
+app.use("/api/onboarding", ensureDatabaseReady, verificarToken, onboardingRouter);
 app.use("/api/clientes", ensureDatabaseReady, verificarToken, verificarPermiso("clientes.gestionar"), clientesRouter);
 app.use("/api/productos", ensureDatabaseReady, verificarToken, verificarPermiso("productos.editar"), productosRouter);
 app.use("/api/pedidos", ensureDatabaseReady, verificarToken, verificarPermiso("pedidos.crear", "pedidos.editar"), pedidosRouter);

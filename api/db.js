@@ -218,6 +218,19 @@ async function ensurePostgresCompatibility() {
     defaultValue: 1
   };
 
+  await ensureColumn(queryInterface, "restaurante", "moneda", { type: DataTypes.STRING(8), allowNull: false, defaultValue: "ARS" });
+  await ensureColumn(queryInterface, "restaurante", "pais", { type: DataTypes.STRING(2), allowNull: false, defaultValue: "AR" });
+  await ensureColumn(queryInterface, "restaurante", "zona_horaria", { type: DataTypes.STRING(64), allowNull: false, defaultValue: "America/Argentina/Buenos_Aires" });
+  await ensureColumn(queryInterface, "restaurante", "porcentaje_impuesto", { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 });
+  await ensureColumn(queryInterface, "restaurante", "razon_social", { type: DataTypes.STRING(160), allowNull: true });
+  await ensureColumn(queryInterface, "restaurante", "identificacion_fiscal", { type: DataTypes.STRING(32), allowNull: true });
+  await ensureColumn(queryInterface, "restaurante", "direccion", { type: DataTypes.STRING(255), allowNull: true });
+  await ensureColumn(queryInterface, "restaurante", "telefono", { type: DataTypes.STRING(60), allowNull: true });
+  await ensureColumn(queryInterface, "restaurante", "email_comercial", { type: DataTypes.STRING(254), allowNull: true });
+  await ensureColumn(queryInterface, "restaurante", "logo_url", { type: DataTypes.TEXT, allowNull: true });
+  await ensureColumn(queryInterface, "restaurante", "onboarding_completado", { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false });
+  await ensureColumn(queryInterface, "restaurante", "onboarding_paso", { type: DataTypes.STRING(40), allowNull: true });
+
   await ensureColumn(queryInterface, "usuario", "restaurante_id", restauranteIdColumn);
   await ensureColumn(queryInterface, "usuario", "email", { type: DataTypes.STRING(254), allowNull: true });
   await ensureColumn(queryInterface, "usuario", "nombre", { type: DataTypes.STRING(120), allowNull: true });
@@ -283,8 +296,8 @@ async function ensurePostgresCompatibility() {
 
   // En producción el sync con alter está desactivado: estas tablas nuevas se crean
   // de forma idempotente para que la fase de seguridad pueda desplegarse sin resetear datos.
-  const tablasSeguridad = ["rol", "permiso", "rol_permiso", "usuario_rol", "sesion_usuario", "token_acceso", "historial_acceso"];
-  for (const tabla of tablasSeguridad) {
+  const tablasRuntime = ["rol", "permiso", "rol_permiso", "usuario_rol", "sesion_usuario", "token_acceso", "historial_acceso", "metodo_pago", "impresora"];
+  for (const tabla of tablasRuntime) {
     if (await tableExists(queryInterface, tabla)) continue;
     const modelo = Object.values(sequelize.models).find((candidato) => candidato.getTableName() === tabla);
     if (modelo) await queryInterface.createTable(tabla, modelo.getAttributes());
